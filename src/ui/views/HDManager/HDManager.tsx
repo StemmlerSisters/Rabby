@@ -1,7 +1,11 @@
 import './index.less';
 import { useWallet } from '@/ui/utils';
 import React from 'react';
-import { HDManagerStateProvider, StateProviderProps } from './utils';
+import {
+  HDManagerStateContext,
+  HDManagerStateProvider,
+  StateProviderProps,
+} from './utils';
 import { Button, Spin, message } from 'antd';
 import {
   HARDWARE_KEYRING_TYPES,
@@ -17,25 +21,33 @@ import { QRCodeManager } from './QRCodeManager';
 import { ReactComponent as TrezorSVG } from 'ui/assets/walletlogo/trezor.svg';
 import { ReactComponent as OneKeySVG } from 'ui/assets/walletlogo/onekey.svg';
 import { ReactComponent as LedgerSVG } from 'ui/assets/walletlogo/ledger.svg';
-import { ReactComponent as MnemonicSVG } from '@/ui/assets/walletlogo/mnemonic-ink.svg';
+import { ReactComponent as ImKeySVG } from 'ui/assets/walletlogo/imkey.svg';
+import { ReactComponent as RcMnemonicSVG } from '@/ui/assets/walletlogo/mnemonic-ink-cc.svg';
 import { ReactComponent as GridPlusSVG } from '@/ui/assets/walletlogo/gridplus.svg';
 import KeyStoneSVG from '@/ui/assets/walletlogo/keystone.svg';
+import NgraveSVG from '@/ui/assets/walletlogo/ngrave.svg';
 import { ReactComponent as AirGapSVG } from '@/ui/assets/walletlogo/airgap.svg';
 import { ReactComponent as CoolWalletSVG } from '@/ui/assets/walletlogo/coolwallet.svg';
 import { ReactComponent as BitBox02SVG } from '@/ui/assets/walletlogo/bitbox02.svg';
+import { ReactComponent as imtokenOfflineSVG } from '@/ui/assets/walletlogo/imTokenOffline.svg';
 import { BitBox02Manager } from './BitBox02Manager';
 import { useTranslation } from 'react-i18next';
+import { ImKeyManager } from './ImKeyManager';
+import { useHistory, useLocation } from 'react-router-dom';
 
 const LOGO_MAP = {
   [HARDWARE_KEYRING_TYPES.Ledger.type]: LedgerSVG,
   [HARDWARE_KEYRING_TYPES.Trezor.type]: TrezorSVG,
   [HARDWARE_KEYRING_TYPES.Onekey.type]: OneKeySVG,
-  [KEYRING_CLASS.MNEMONIC]: MnemonicSVG,
+  [KEYRING_CLASS.MNEMONIC]: RcMnemonicSVG,
   [HARDWARE_KEYRING_TYPES.GridPlus.type]: GridPlusSVG,
   [WALLET_BRAND_TYPES.KEYSTONE]: KeyStoneSVG,
   [WALLET_BRAND_TYPES.AIRGAP]: AirGapSVG,
   [WALLET_BRAND_TYPES.COOLWALLET]: CoolWalletSVG,
   [HARDWARE_KEYRING_TYPES.BitBox02.type]: BitBox02SVG,
+  [WALLET_BRAND_TYPES.IMTOKENOFFLINE]: imtokenOfflineSVG,
+  [HARDWARE_KEYRING_TYPES.ImKey.type]: ImKeySVG,
+  [WALLET_BRAND_TYPES.NGRAVEZERO]: NgraveSVG,
 };
 
 const MANAGER_MAP = {
@@ -46,6 +58,7 @@ const MANAGER_MAP = {
   [HARDWARE_KEYRING_TYPES.GridPlus.type]: GridPlusManager,
   [HARDWARE_KEYRING_TYPES.Keystone.type]: QRCodeManager,
   [HARDWARE_KEYRING_TYPES.BitBox02.type]: BitBox02Manager,
+  [HARDWARE_KEYRING_TYPES.ImKey.type]: ImKeyManager,
 };
 
 export const HDManager: React.FC<StateProviderProps> = ({
@@ -53,6 +66,13 @@ export const HDManager: React.FC<StateProviderProps> = ({
   keyringId,
   brand,
 }) => {
+  const { search } = useLocation();
+  const [isNewUserImport, noRedirect] = React.useMemo(() => {
+    const query = new URLSearchParams(search);
+    return [query.get('isNewUserImport'), query.get('noRedirect')];
+  }, [search]);
+  const history = useHistory();
+
   const wallet = useWallet();
   const [initialed, setInitialed] = React.useState(false);
   const idRef = React.useRef<number | null>(null);
@@ -76,11 +96,15 @@ export const HDManager: React.FC<StateProviderProps> = ({
       'page.newAddress.hd.manageGridplus'
     ),
     [WALLET_BRAND_TYPES.KEYSTONE]: t('page.newAddress.hd.manageKeystone'),
-    [WALLET_BRAND_TYPES.AIRGAP]: t('page.newAddress.hd.manageAirgap'),
+    [WALLET_BRAND_TYPES.IMTOKENOFFLINE]: t(
+      'page.newAddress.hd.manageImtokenOffline'
+    ),
     [WALLET_BRAND_TYPES.COOLWALLET]: t('page.newAddress.hd.manageCoolwallet'),
     [HARDWARE_KEYRING_TYPES.BitBox02.type]: t(
       'page.newAddress.hd.manageBitbox02'
     ),
+    [HARDWARE_KEYRING_TYPES.ImKey.type]: t('page.newAddress.hd.manageImKey'),
+    [WALLET_BRAND_TYPES.NGRAVEZERO]: t('page.newAddress.hd.manageNgraveZero'),
   };
 
   React.useEffect(() => {
@@ -103,28 +127,33 @@ export const HDManager: React.FC<StateProviderProps> = ({
         })
         .catch((e) => {
           console.error(e);
-          if (keyring === KEYRING_CLASS.HARDWARE.GRIDPLUS) {
-            setInitialed(true);
-          } else {
-            setInitialed(false);
-            message.error({
-              content: t('page.newAddress.hd.tooltip.connectError'),
-              key: 'ledger-error',
-            });
-          }
+          setInitialed(false);
+          message.error({
+            content: t('page.newAddress.hd.tooltip.connectError'),
+            key: 'ledger-error',
+          });
         });
     }
-
-    window.addEventListener('beforeunload', () => {
-      closeConnect();
-    });
+    if (!isNewUserImport) {
+      window.addEventListener('beforeunload', () => {
+        closeConnect();
+      });
+    }
 
     return () => {
-      closeConnect();
+      if (!isNewUserImport) {
+        closeConnect();
+      }
     };
   }, []);
 
   const handleCloseWin = React.useCallback(() => {
+    if (isNewUserImport && !noRedirect) {
+      history.push(
+        `/new-user/success?hd=${keyring}&keyringId=${keyringId}&brand=${brand}`
+      );
+      return;
+    }
     window.close();
   }, []);
 
@@ -148,21 +177,41 @@ export const HDManager: React.FC<StateProviderProps> = ({
             {typeof Logo === 'string' ? (
               <img src={Logo} className="icon" />
             ) : (
-              <Logo className="icon" viewBox="0 0 28px 28px" />
+              <Logo className="icon text-r-neutral-body" />
             )}
             <span className="title">{name}</span>
           </div>
           <Manager brand={brand} />
         </main>
-        <div
+        <DoneButton onClick={handleCloseWin} />
+        {/* <div
           onClick={handleCloseWin}
           className="absolute bottom-[40px] left-0 right-0 text-center"
         >
           <Button type="primary" className="w-[280px] h-[60px] text-20">
             {t('page.newAddress.hd.done')}
           </Button>
-        </div>
+        </div> */}
       </div>
     </HDManagerStateProvider>
+  );
+};
+
+const DoneButton = ({ onClick }: { onClick?(): void }) => {
+  const { t } = useTranslation();
+
+  const { currentAccounts } = React.useContext(HDManagerStateContext);
+
+  return (
+    <div className="absolute bottom-[40px] left-0 right-0 text-center">
+      <Button
+        type="primary"
+        className="w-[280px] h-[60px] text-20"
+        onClick={onClick}
+        disabled={!currentAccounts.length}
+      >
+        {t('page.newAddress.hd.done')}
+      </Button>
+    </div>
   );
 };

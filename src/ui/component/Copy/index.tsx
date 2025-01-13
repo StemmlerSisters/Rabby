@@ -1,10 +1,13 @@
 import { message } from 'antd';
 import ClipboardJS from 'clipboard';
 import clsx from 'clsx';
-import React, { MouseEventHandler, useEffect, useRef } from 'react';
+import React, { MouseEventHandler, useEffect, useMemo, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import IconAddressCopy from 'ui/assets/icon-copy-2.svg';
+import IconAddressCopyLight from 'ui/assets/icon-copy-2-light.svg';
+import IconAddressCopyDark from 'ui/assets/icon-copy-2-dark.svg';
 import IconSuccess from 'ui/assets/success.svg';
+import { useThemeMode } from '@/ui/hooks/usePreference';
+import ThemeIcon from '../ThemeMode/ThemeIcon';
 
 interface CopyProps {
   className?: string;
@@ -35,7 +38,7 @@ const Copy = ({
 
     clipboard.on('success', () => {
       if (variant === 'address') {
-        message.success({
+        const destroy = message.success({
           duration: 1,
           icon: <i />,
           content: (
@@ -48,6 +51,9 @@ const Copy = ({
             </div>
           ),
         });
+        setTimeout(() => {
+          destroy();
+        }, 1000);
       } else {
         message.success({
           icon: <img src={IconSuccess} className="icon icon-success" />,
@@ -59,11 +65,17 @@ const Copy = ({
     return () => clipboard.destroy();
   }, [data]);
 
+  const { isDarkTheme } = useThemeMode();
+
+  const DEFAULT_COPY_ICON = isDarkTheme
+    ? IconAddressCopyDark
+    : IconAddressCopyLight;
+
   return (
     <img
       ref={ref}
       onClick={onClick}
-      src={icon || IconAddressCopy}
+      src={icon || DEFAULT_COPY_ICON}
       id={'copyIcon'}
       className={clsx('js-copy cursor-pointer', className)}
       style={style}

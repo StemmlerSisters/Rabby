@@ -3,8 +3,8 @@ import clsx from 'clsx';
 import React, { MouseEventHandler, useMemo } from 'react';
 import { useEffect, useRef } from 'react';
 import IconUnknown from 'ui/assets/icon-unknown-1.svg';
-import IconExternal from '../icons/icon-share.svg';
-import { ReactComponent as IconArrowRight } from 'ui/assets/approval-management/right.svg';
+import { ReactComponent as RcIconExternal } from '../icons/icon-share-cc.svg';
+import { ReactComponent as RcIconArrowRightCC } from '../icons/right-cc.svg';
 import { Alert } from 'antd';
 import { InfoCircleOutlined } from '@ant-design/icons';
 
@@ -13,6 +13,7 @@ import { findChainByServerID } from '@/utils/chain';
 import { openScanLinkFromChainItem } from '../utils';
 import ApprovalsNameAndAddr from './NameAndAddr';
 import { useTranslation } from 'react-i18next';
+import ThemeIcon from '@/ui/component/ThemeMode/ThemeIcon';
 
 type Props = {
   data: ApprovalItem[];
@@ -58,7 +59,7 @@ export const ApprovalContractItem = ({
     <div
       ref={rowRef}
       className={clsx(
-        'bg-white mb-[12px] rounded-[6px] border border-transparent contract-approval-item',
+        'bg-r-neutral-card1 mb-[12px] rounded-[6px] border border-transparent contract-approval-item',
         onSelect &&
           'hover:border-blue-light hover:bg-blue-light hover:bg-opacity-[0.1] cursor-pointer'
       )}
@@ -97,13 +98,15 @@ export const ApprovalContractItem = ({
                     ({item.name || 'Unknown'})
                   </span>
 
-                  <img
+                  <ThemeIcon
                     onClick={(evt) => {
                       evt.stopPropagation();
                       openScanLinkFromChainItem(chainItem?.scanLink, item.id);
                     }}
-                    src={IconExternal}
-                    className={clsx('ml-6 w-[16px] h-[16px] cursor-pointer')}
+                    src={RcIconExternal}
+                    className={clsx(
+                      'ml-6 w-[16px] h-[16px] cursor-pointer text-r-neutral-foot'
+                    )}
                   />
                 </>
               }
@@ -112,7 +115,7 @@ export const ApprovalContractItem = ({
           </div>
         </div>
 
-        <span className="text-[13px] text-gray-subTitle flex-shrink-0 ml-auto font-medium">
+        <span className="text-[13px] text-r-neutral-body flex-shrink-0 ml-auto font-medium">
           {item.list.length}{' '}
           {!onSelect &&
             (item.list.length > 1
@@ -126,13 +129,13 @@ export const ApprovalContractItem = ({
                 ))}
           {}
         </span>
-        {onSelect && <IconArrowRight />}
+        {onSelect && <RcIconArrowRightCC className="text-r-blue-default" />}
       </div>
       {risky && (
         <div className="pb-[12px]">
           <Alert
             className={clsx(
-              'mx-[16px]  rounded-[4px] px-[8px] py-[3px]',
+              'mx-[16px] rounded-[4px] px-[8px] py-[3px] leading-[1.2]',
               item.risk_level === 'danger' ? 'bg-[#ec5151]' : 'bg-orange'
             )}
             icon={
