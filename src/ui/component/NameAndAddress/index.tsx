@@ -5,36 +5,21 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import ClipboardJS from 'clipboard';
-import { message } from 'antd';
+import { Tooltip } from 'antd';
+
 import { useWallet } from 'ui/utils';
 import clsx from 'clsx';
-import { ALIAS_ADDRESS, CHAINS_ENUM } from '@/constant';
+import { ALIAS_ADDRESS, CHAINS_ENUM, ThemeIconType } from '@/constant';
 import { openInTab } from '@/ui/utils';
 import { findChainByEnum } from '@/utils/chain';
-import { copyTextToClipboard } from '@/ui/utils/clipboard';
+import { copyAddress } from '@/ui/utils/clipboard';
 
-import IconSuccess from 'ui/assets/success.svg';
 import IconAddressCopy from 'ui/assets/icon-copy-2.svg';
 import IconExternal from 'ui/assets/icon-share.svg';
 import './index.less';
 import { useTranslation } from 'react-i18next';
-
-function tipCopied(addr: string, t: any) {
-  message.success({
-    duration: 3,
-    icon: <i />,
-    content: (
-      <div>
-        <div className="flex gap-4 mb-4">
-          <img src={IconSuccess} alt="" />
-          {t('global.copied')}
-        </div>
-        <div className="text-white">{addr}</div>
-      </div>
-    ),
-  });
-}
+import { getAddressScanLink } from '@/utils';
+import ThemeIcon from '../ThemeMode/ThemeIcon';
 
 interface NameAndAddressProps {
   className?: string;
@@ -42,11 +27,14 @@ interface NameAndAddressProps {
   nameClass?: string;
   addressClass?: string;
   noNameClass?: string;
-  copyIconClass?: string;
   openExternal?: boolean;
+  externalIconProps?: Partial<React.ComponentProps<typeof ThemeIcon>>;
   chainEnum?: CHAINS_ENUM;
-  copyIcon?: boolean | string;
+  copyIcon?: boolean | ThemeIconType;
+  copyIconClass?: string;
+  copyIconProps?: React.ComponentProps<typeof ThemeIcon>;
   addressSuffix?: React.ReactNode;
+  tooltipAliasName?: boolean;
   /**
    * @description don't know why click event not be stopped when click copy icon,
    * just add this prop to fix it in some case.
@@ -62,9 +50,12 @@ const NameAndAddress = ({
   noNameClass = '',
   copyIconClass = '',
   openExternal = false,
+  externalIconProps = { className: copyIconClass },
   chainEnum,
   copyIcon = true,
+  copyIconProps,
   addressSuffix = null,
+  tooltipAliasName = false,
   __internalRestrainClickEventOnCopyIcon = false,
 }: NameAndAddressProps) => {
   const wallet = useWallet();
@@ -83,16 +74,7 @@ const NameAndAddress = ({
   };
   const localName = alianName || '';
   const handleCopyContractAddress = () => {
-    const clipboard = new ClipboardJS('.name-and-address', {
-      text: function () {
-        return address;
-      },
-    });
-
-    clipboard.on('success', () => {
-      tipCopied(address, t);
-      clipboard.destroy();
-    });
+    copyAddress(address);
   };
 
   const handleClickCopyIcon = useCallback(
@@ -102,9 +84,7 @@ const NameAndAddress = ({
       >[0]
     ) => {
       evt.stopPropagation();
-      copyTextToClipboard(address).then(() => {
-        tipCopied(address, t);
-      });
+      copyAddress(address);
     },
     [address]
   );
@@ -112,10 +92,8 @@ const NameAndAddress = ({
   const handleClickContractId = () => {
     if (!chainEnum) return;
     const chainItem = findChainByEnum(chainEnum);
-    openInTab(
-      chainItem?.scanLink.replace(/tx\/_s_/, `address/${address}`),
-      false
-    );
+    if (!chainItem) return;
+    openInTab(getAddressScanLink(chainItem?.scanLink, address), false);
   };
 
   useEffect(() => {
@@ -140,9 +118,14 @@ const NameAndAddress = ({
   return (
     <div className={clsx('name-and-address', className)}>
       {localName && (
-        <div className={clsx('name', nameClass)} title={localName}>
-          {localName}
-        </div>
+        <Tooltip
+          {...(!tooltipAliasName && { visible: false })}
+          overlay={<>{localName}</>}
+        >
+          <div className={clsx('name', nameClass)} title={localName}>
+            {localName}
+          </div>
+        </Tooltip>
       )}
       <div
         className={clsx('address', addressClass, !localName && noNameClass)}
@@ -158,27 +141,34 @@ const NameAndAddress = ({
       </div>
       {addressSuffix || null}
       {openExternal && (
-        <img
+        <ThemeIcon
           onClick={handleClickContractId}
           src={IconExternal}
           width={16}
           height={16}
-          className={clsx('ml-6 cursor-pointer', copyIconClass)}
+          {...(externalIconProps as any)}
+          className={clsx('ml-6 cursor-pointer', externalIconProps?.className)}
         />
       )}
       {isShowCopyIcon && (
-        <img
+        <ThemeIcon
+          src={iconCopySrc}
           onClick={
             __internalRestrainClickEventOnCopyIcon
               ? handleClickCopyIcon
               : handleCopyContractAddress
           }
-          src={iconCopySrc}
           width={16}
           height={16}
-          className={clsx('ml-6 cursor-pointer', copyIconClass, {
-            success: true,
-          })}
+          {...(copyIconProps as any)}
+          className={clsx(
+            'ml-6 cursor-pointer',
+            copyIconClass,
+            {
+              success: true,
+            },
+            copyIconProps?.className
+          )}
         />
       )}
     </div>

@@ -7,6 +7,9 @@ import { sinceTime, openInTab, getUITypeName } from 'ui/utils';
 import { ellipsis } from 'ui/utils/address';
 import { CHAINS } from 'consts';
 import { useTranslation } from 'react-i18next';
+import { TooltipWithMagnetArrow } from '@/ui/component/Tooltip/TooltipWithMagnetArrow';
+import { findChain } from '@/utils/chain';
+import { getTxScanLink } from '@/utils';
 
 type HistoryItemProps = {
   data: TxDisplayItem | TxHistoryItem;
@@ -17,7 +20,7 @@ type HistoryItemProps = {
 const EtherscanLink = styled.div`
   cursor: pointer;
   text-decoration: underline;
-  color: #707880;
+  color: var(--r-neutral-foot, #6a7587);
   font-size: 12px;
   line-height: 14px;
 `;
@@ -34,38 +37,48 @@ export const HistoryItem = ({
   const isScam = data.is_scam;
 
   const handleClickTxHash = () => {
-    const chain = Object.values(CHAINS).find(
-      (item) => data.chain === item.serverId
-    );
+    const chain = findChain({
+      serverId: data.chain,
+    });
     if (!chain) return;
     const needClose = getUITypeName() !== 'notification';
-    openInTab(chain.scanLink.replace(/_s_/, data.id), needClose);
+    openInTab(getTxScanLink(chain.scanLink, data.id), needClose);
   };
   const { t } = useTranslation();
   return (
-    <div
-      className={clsx(
-        'token-txs-history-card',
-        (isScam || isFailed) && 'is-gray'
-      )}
-    >
+    <div className={clsx('token-txs-history-card')}>
       <div className="token-txs-history-card-header">
         {isScam && (
-          <div className="tag-scam">
-            {t('page.dashboard.tokenDetail.scamTx')}
-          </div>
+          <TooltipWithMagnetArrow
+            title={t('page.transactions.txHistory.scamToolTip')}
+            className="rectangle w-[max-content] max-w-[340px]"
+          >
+            <div className="tag-scam opacity-50">{t('global.scamTx')}</div>
+          </TooltipWithMagnetArrow>
         )}
-        <div className="time">{sinceTime(data.time_at)}</div>
-        {isFailed && (
-          <span className="tx-status is-failed">
-            {t('page.dashboard.tokenDetail.txFailed')}
-          </span>
-        )}
-        <EtherscanLink onClick={handleClickTxHash}>
-          {ellipsis(data.id)}
-        </EtherscanLink>
+        <div
+          className={clsx(
+            'txs-history-card-header-inner',
+            (isScam || isFailed) && 'opacity-50'
+          )}
+        >
+          <div className="time">{sinceTime(data.time_at)}</div>
+          {isFailed && (
+            <span className="tx-status is-failed">
+              {t('page.dashboard.tokenDetail.txFailed')}
+            </span>
+          )}
+          <EtherscanLink onClick={handleClickTxHash}>
+            {ellipsis(data.id)}
+          </EtherscanLink>
+        </div>
       </div>
-      <div className="token-txs-history-card-body">
+      <div
+        className={clsx(
+          'token-txs-history-card-body',
+          (isScam || isFailed) && 'opacity-50'
+        )}
+      >
         <TxInterAddressExplain
           data={data}
           projectDict={projectDict}

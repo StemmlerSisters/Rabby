@@ -1,7 +1,8 @@
+/* eslint "react-hooks/exhaustive-deps": ["error"] */
+/* eslint-enable react-hooks/exhaustive-deps */
 import React, {
   useState,
   useRef,
-  useCallback,
   useMemo,
   useEffect,
   useLayoutEffect,
@@ -13,15 +14,17 @@ import PQueue from 'p-queue';
 
 import { useRabbyDispatch, useRabbySelector } from '@/ui/store';
 import { useWallet } from '@/ui/utils';
-import { CHAINS_ENUM } from '@debank/common';
+import { ApprovalSpenderItemToBeRevoked } from '@/utils-isomorphic/approve';
 import {
   ApprovalItem,
   AssetApprovalItem,
+  AssetApprovalSpender,
   ContractApprovalItem,
   NftApprovalItem,
   TokenApprovalItem,
   getContractRiskEvaluation,
   makeComputedRiskAboutValues,
+  markContractTokenSpender,
   markParentForAssetItemSpender,
 } from '@/utils/approval';
 
@@ -29,6 +32,19 @@ import { groupBy, sortBy, flatten, debounce } from 'lodash';
 import IconUnknownNFT from 'ui/assets/unknown-nft.svg';
 import IconUnknownToken from 'ui/assets/token-default.svg';
 import useDebounceValue from '@/ui/hooks/useDebounceValue';
+import { getTokenSymbol } from '@/ui/utils/token';
+import { HandleClickTableRow } from './components/Table';
+import {
+  dedupeSelectedRows,
+  encodeRevokeItemIndex,
+  findIndexRevokeList,
+  isSelectedAllAssetApprovals,
+  isSelectedAllContract,
+  toRevokeItem,
+} from './utils';
+import { summarizeRevoke } from '@/utils-isomorphic/approve';
+import { Chain, CHAINS_ENUM } from '@debank/common';
+import { findChainByServerID } from '@/utils/chain';
 
 /**
  * @see `@sticky-top-height-*`, `@sticky-footer-height` in ./style.less
@@ -93,21 +109,19 @@ const resetTableRenderer = (
   }
 };
 
-export function useApprovalsPage(options?: { isTestnet?: boolean }) {
+export function useApprovalsPage(options?: {
+  isTestnet?: boolean;
+  chain?: CHAINS_ENUM;
+}) {
   const wallet = useWallet();
 
   const dispatch = useRabbyDispatch();
 
   const account = useRabbySelector((state) => state.account.currentAccount);
-  const chain = useRabbySelector(
-    (state) =>
-      state.preference.tokenApprovalChain[
-        account?.address?.toLowerCase() || ''
-      ] || CHAINS_ENUM.ETH
-  );
 
   useEffect(() => {
     dispatch.account.fetchCurrentAccountAliasNameAsync();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account?.address]);
 
   const [filterType, setFilterType] = useState<keyof typeof FILTER_TYPES>(
@@ -141,21 +155,36 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
 
   const queueRef = useRef(new PQueue({ concurrency: 40 }));
 
+  const [isLoadingOnAsyncFn, setIsLoadingOnAsyncFn] = useState(false);
+  const [approvalsData, setApprovalsData] = useState<{
+    contractMap: Record<string, ContractApprovalItem>;
+    tokenMap: Record<string, TokenApprovalItem>;
+    nftMap: Record<string, NftApprovalItem>;
+  }>({
+    contractMap: {},
+    tokenMap: {},
+    nftMap: {},
+  });
   const [
-    { value: allData, loading, error },
-    loadData,
+    { loading: loadingMaybeWrong, error },
+    loadApprovals,
   ] = useAsyncFn(async () => {
+    setIsLoadingOnAsyncFn(true);
+
     const openapiClient = options?.isTestnet
       ? wallet.testnetOpenapi
       : wallet.openapi;
 
     const userAddress = account!.address;
     const usedChainList = await openapiClient.usedChainList(userAddress);
+    const nextApprovalsData = {
+      contractMap: {},
+      tokenMap: {},
+      nftMap: {},
+    } as typeof approvalsData;
 
-    const contractMap: Record<string, ContractApprovalItem> = {};
-    const tokenMap: Record<string, TokenApprovalItem> = {};
-    const nftMap: Record<string, NftApprovalItem> = {};
     await queueRef.current.clear();
+
     const nftAuthorizedQueryList = usedChainList.map((e) => async () => {
       try {
         const data = await openapiClient.userNFTAuthorizedList(
@@ -168,12 +197,12 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
             const contractId = contract.spender.id;
             const spender = contract.spender;
 
-            if (!contractMap[`${chainName}:${contractId}`]) {
+            if (!nextApprovalsData.contractMap[`${chainName}:${contractId}`]) {
               const $riskAboutValues = makeComputedRiskAboutValues(
                 'nft-contract',
                 spender
               );
-              contractMap[`${chainName}:${contractId}`] = {
+              nextApprovalsData.contractMap[`${chainName}:${contractId}`] = {
                 list: [],
                 chain: e.id,
                 type: 'contract',
@@ -190,10 +219,16 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
                 logo_url: spender.protocol?.logo_url,
               };
             }
-            contractMap[`${chainName}:${contractId}`].list.push(contract);
+            nextApprovalsData.contractMap[
+              `${chainName}:${contractId}`
+            ].list.push(contract);
 
-            if (!nftMap[`${chainName}:${contract.contract_id}`]) {
-              nftMap[`${chainName}:${contract.contract_id}`] = {
+            if (
+              !nextApprovalsData.nftMap[`${chainName}:${contract.contract_id}`]
+            ) {
+              nextApprovalsData.nftMap[
+                `${chainName}:${contract.contract_id}`
+              ] = {
                 nftContract: contract,
                 list: [],
                 type: 'nft',
@@ -210,11 +245,15 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
                 chain: e.id,
               };
             }
-            nftMap[`${chainName}:${contract.contract_id}`].list.push(
+            nextApprovalsData.nftMap[
+              `${chainName}:${contract.contract_id}`
+            ].list.push(
               markParentForAssetItemSpender(
                 spender,
-                nftMap[`${chainName}:${contract.contract_id}`],
-                contractMap[`${chainName}:${contractId}`],
+                nextApprovalsData.nftMap[
+                  `${chainName}:${contract.contract_id}`
+                ],
+                nextApprovalsData.contractMap[`${chainName}:${contractId}`],
                 contract
               )
             );
@@ -225,12 +264,14 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
             const contractId = token.spender.id;
             const spender = token.spender;
 
-            if (!contractMap[`${token.chain}:${contractId}`]) {
+            if (
+              !nextApprovalsData.contractMap[`${token.chain}:${contractId}`]
+            ) {
               const $riskAboutValues = makeComputedRiskAboutValues(
                 'nft',
                 spender
               );
-              contractMap[`${token.chain}:${contractId}`] = {
+              nextApprovalsData.contractMap[`${token.chain}:${contractId}`] = {
                 list: [],
                 chain: e.id,
                 risk_level: spender.risk_level,
@@ -247,11 +288,13 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
                 ),
               };
             }
-            contractMap[`${chainName}:${contractId}`].list.push(token);
+            nextApprovalsData.contractMap[
+              `${chainName}:${contractId}`
+            ].list.push(token);
 
             const nftTokenKey = `${chainName}:${token.contract_id}:${token.inner_id}`;
-            if (!nftMap[nftTokenKey]) {
-              nftMap[nftTokenKey] = {
+            if (!nextApprovalsData.nftMap[nftTokenKey]) {
+              nextApprovalsData.nftMap[nftTokenKey] = {
                 nftToken: token,
                 list: [],
                 chain: e.id,
@@ -264,11 +307,11 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
                 amount: token.amount,
               };
             }
-            nftMap[nftTokenKey].list.push(
+            nextApprovalsData.nftMap[nftTokenKey].list.push(
               markParentForAssetItemSpender(
                 spender,
-                nftMap[nftTokenKey],
-                contractMap[`${chainName}:${contractId}`],
+                nextApprovalsData.nftMap[nftTokenKey],
+                nextApprovalsData.contractMap[`${chainName}:${contractId}`],
                 token
               )
             );
@@ -281,18 +324,25 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
 
     const tokenAuthorizedQueryList = usedChainList.map((e) => async () => {
       try {
-        const data = await openapiClient.tokenAuthorizedList(userAddress, e.id);
+        const data = await openapiClient.tokenAuthorizedList(
+          userAddress,
+          e.id,
+          { restfulPrefix: 'v2' }
+        );
         if (data.length) {
           data.forEach((token) => {
             token.spenders.forEach((spender) => {
-              const chainName = token.chain;
+              const shapedToken = markContractTokenSpender(token, spender);
+              const chainName = shapedToken.chain;
               const contractId = spender.id;
-              if (!contractMap[`${chainName}:${contractId}`]) {
+              if (
+                !nextApprovalsData.contractMap[`${chainName}:${contractId}`]
+              ) {
                 const $riskAboutValues = makeComputedRiskAboutValues(
                   'token',
                   spender
                 );
-                contractMap[`${chainName}:${contractId}`] = {
+                nextApprovalsData.contractMap[`${chainName}:${contractId}`] = {
                   list: [],
                   chain: token.chain,
                   risk_level: spender.risk_level,
@@ -309,32 +359,34 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
                   ),
                 };
               }
-              contractMap[`${chainName}:${contractId}`].list.push(token);
+              nextApprovalsData.contractMap[
+                `${chainName}:${contractId}`
+              ].list.push(shapedToken);
 
-              const tokenId = token.id;
+              const tokenId = shapedToken.id;
 
-              if (!tokenMap[`${chainName}:${tokenId}`]) {
-                tokenMap[`${chainName}:${tokenId}`] = {
+              if (!nextApprovalsData.tokenMap[`${chainName}:${tokenId}`]) {
+                nextApprovalsData.tokenMap[`${chainName}:${tokenId}`] = {
                   list: [],
                   chain: e.id,
                   risk_level: 'safe',
-                  id: token.id,
-                  name: token.symbol,
+                  id: shapedToken.id,
+                  name: getTokenSymbol(shapedToken),
                   logo_url: token.logo_url || IconUnknownToken,
                   type: 'token',
                   $riskAboutValues: makeComputedRiskAboutValues(
                     'token',
                     spender
                   ),
-                  balance: token.balance,
+                  balance: shapedToken.balance,
                 };
               }
-              tokenMap[`${chainName}:${tokenId}`].list.push(
+              nextApprovalsData.tokenMap[`${chainName}:${tokenId}`].list.push(
                 markParentForAssetItemSpender(
                   spender,
-                  tokenMap[`${chainName}:${tokenId}`],
-                  contractMap[`${chainName}:${contractId}`],
-                  token
+                  nextApprovalsData.tokenMap[`${chainName}:${tokenId}`],
+                  nextApprovalsData.contractMap[`${chainName}:${contractId}`],
+                  shapedToken
                 )
               );
             });
@@ -349,30 +401,29 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
       ...tokenAuthorizedQueryList,
     ]);
 
-    sortTokenOrNFTApprovalsSpenderList(tokenMap);
-    sortTokenOrNFTApprovalsSpenderList(nftMap);
+    sortTokenOrNFTApprovalsSpenderList(nextApprovalsData.tokenMap);
+    sortTokenOrNFTApprovalsSpenderList(nextApprovalsData.nftMap);
 
-    return [contractMap, tokenMap, nftMap];
+    setIsLoadingOnAsyncFn(false);
+
+    setApprovalsData(nextApprovalsData);
+
+    return [
+      nextApprovalsData.contractMap,
+      nextApprovalsData.tokenMap,
+      nextApprovalsData.nftMap,
+    ];
   }, [account?.address, options?.isTestnet]);
 
-  const loadApprovals = useCallback(async () => {
-    await loadData();
-
-    setTimeout(() => {
-      resetTableRenderer(vGridRefContracts);
-      resetTableRenderer(vGridRefAsset);
-    }, 200);
-  }, [loadData]);
-
-  const [contractMap, tokenMap, nftMap] = allData || [];
+  const isLoading = isLoadingOnAsyncFn && loadingMaybeWrong;
 
   if (error) {
     console.log('error', error);
   }
 
   const sortedContractList: ContractApprovalItem[] = useMemo(() => {
-    if (contractMap) {
-      const contractMapArr = Object.values(contractMap);
+    if (approvalsData.contractMap) {
+      const contractMapArr = Object.values(approvalsData.contractMap);
       const l = contractMapArr.length;
       const dangerList: ContractApprovalItem[] = [];
       const warnList: ContractApprovalItem[] = [];
@@ -398,30 +449,67 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
       const sortedList = sorted.map((e) =>
         sortBy(e, (a) => a.list.length).reverse()
       );
-      return [...dangerList, ...warnList, ...flatten(sortedList.reverse())];
+      const list = [
+        ...dangerList,
+        ...warnList,
+        ...flatten(sortedList.reverse()),
+      ];
+
+      // filter chain
+      if (options?.chain) {
+        return list.filter(
+          (e) =>
+            findChainByServerID(e.chain as Chain['serverId'])?.enum ===
+            options.chain
+        );
+      }
+
+      return list;
     }
     return [];
-  }, [contractMap, tokenMap, nftMap, filterType]);
+  }, [approvalsData.contractMap, options?.chain]);
 
-  const sortedAssetstList = useMemo(() => {
+  useEffect(() => {
+    setTimeout(() => {
+      resetTableRenderer(vGridRefContracts);
+    }, 200);
+  }, [sortedContractList]);
+
+  const sortedAssetsList = useMemo(() => {
     const assetsList = [
       ...flatten(
-        Object.values(tokenMap || {}).map(
+        Object.values(approvalsData.tokenMap || {}).map(
           (item: TokenApprovalItem) => item.list
         )
       ),
-      ...flatten(Object.values(nftMap || {}).map((item) => item.list)),
+      ...flatten(
+        Object.values(approvalsData.nftMap || {}).map((item) => item.list)
+      ),
     ] as AssetApprovalItem['list'][number][];
 
+    // filter chain
+    if (options?.chain) {
+      return assetsList.filter(
+        (e) =>
+          findChainByServerID(e.$assetParent?.chain as Chain['serverId'])
+            ?.enum === options.chain
+      );
+    }
     return assetsList;
     // return [...dangerList, ...warnList, ...flatten(sortedList.reverse())];
-  }, [tokenMap, nftMap, filterType]);
+  }, [approvalsData.tokenMap, approvalsData.nftMap, options?.chain]);
+
+  useEffect(() => {
+    setTimeout(() => {
+      resetTableRenderer(vGridRefAsset);
+    }, 200);
+  }, [sortedAssetsList]);
 
   const { displaySortedContractList, displaySortedAssetsList } = useMemo(() => {
     if (!debouncedSearchKw || debouncedSearchKw.trim() === '') {
       return {
         displaySortedContractList: sortedContractList,
-        displaySortedAssetsList: sortedAssetstList,
+        displaySortedAssetsList: sortedAssetsList,
       };
     }
 
@@ -432,7 +520,7 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
           i.toLowerCase().includes(keywords)
         );
       }),
-      displaySortedAssetsList: sortedAssetstList.filter((e) => {
+      displaySortedAssetsList: sortedAssetsList.filter((e) => {
         return [
           e.id,
           e.risk_alert || '',
@@ -442,14 +530,10 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
         ].some((i) => i?.toLowerCase().includes(keywords));
       }),
     };
-  }, [sortedContractList, debouncedSearchKw]);
-
-  useEffect(() => {
-    loadApprovals();
-  }, [loadApprovals]);
+  }, [sortedContractList, sortedAssetsList, debouncedSearchKw]);
 
   return {
-    isLoading: loading,
+    isLoading,
     loadApprovals,
     searchKw,
     debouncedSearchKw,
@@ -462,8 +546,182 @@ export function useApprovalsPage(options?: { isTestnet?: boolean }) {
     vGridRefAsset,
 
     account,
-    chain,
+    contractEmptyStatus: useMemo(() => {
+      if (!sortedContractList.length) return 'none' as const;
+
+      if (!displaySortedContractList.length) return 'no-matched' as const;
+
+      return false as const;
+    }, [sortedContractList, displaySortedContractList]),
     displaySortedContractList,
+    assetEmptyStatus: useMemo(() => {
+      if (!sortedAssetsList.length) return 'none' as const;
+
+      if (!displaySortedAssetsList.length) return 'no-matched' as const;
+
+      return false as const;
+    }, [sortedAssetsList, displaySortedAssetsList]),
     displaySortedAssetsList,
+  };
+}
+
+export type IHandleChangeSelectedSpenders<T extends ApprovalItem> = (ctx: {
+  approvalItem: T;
+  selectedRevokeItems: ApprovalSpenderItemToBeRevoked[];
+}) => any;
+export function useSelectSpendersToRevoke({
+  filterType,
+  displaySortedContractList,
+  displaySortedAssetsList,
+}: {
+  filterType: keyof typeof FILTER_TYPES;
+  displaySortedContractList: ContractApprovalItem[];
+  displaySortedAssetsList: AssetApprovalSpender[];
+}) {
+  const [assetRevokeList, setAssetRevokeList] = React.useState<
+    ApprovalSpenderItemToBeRevoked[]
+  >([]);
+  const handleClickAssetRow: HandleClickTableRow<AssetApprovalSpender> = React.useCallback(
+    (ctx) => {
+      const record = ctx.record;
+      const index = findIndexRevokeList(assetRevokeList, {
+        item: record.$assetContract!,
+        spenderHost: record.$assetToken!,
+        assetApprovalSpender: record,
+      });
+      if (index > -1) {
+        setAssetRevokeList((prev) => prev.filter((item, i) => i !== index));
+      } else {
+        const revokeItem = toRevokeItem(
+          record.$assetContract!,
+          record.$assetToken!,
+          record
+        );
+        if (revokeItem) {
+          setAssetRevokeList((prev) => [...prev, revokeItem]);
+        }
+      }
+    },
+    [assetRevokeList]
+  );
+
+  const assetSelectResult = useMemo(() => {
+    return isSelectedAllAssetApprovals(
+      displaySortedAssetsList,
+      assetRevokeList
+    );
+  }, [displaySortedAssetsList, assetRevokeList]);
+
+  const toggleAllAssetRevoke = React.useCallback(
+    (list: AssetApprovalSpender[]) => {
+      if (assetSelectResult.isSelectedAll) {
+        setAssetRevokeList([]);
+      } else {
+        const revokeList = list.map((record) =>
+          toRevokeItem(record.$assetContract!, record.$assetToken!, record)
+        );
+        setAssetRevokeList(
+          dedupeSelectedRows(
+            revokeList.filter(Boolean) as ApprovalSpenderItemToBeRevoked[]
+          )
+        );
+      }
+    },
+    [assetSelectResult.isSelectedAll]
+  );
+
+  const [contractRevokeMap, setContractRevokeMap] = React.useState<
+    Record<string, ApprovalSpenderItemToBeRevoked[]>
+  >({});
+  const contractRevokeList = useMemo(() => {
+    return Object.values(contractRevokeMap).flat();
+  }, [contractRevokeMap]);
+
+  const currentRevokeList = useMemo(() => {
+    return filterType === 'contract'
+      ? contractRevokeList
+      : filterType === 'assets'
+      ? assetRevokeList
+      : [];
+  }, [contractRevokeList, assetRevokeList, filterType]);
+
+  const contractSelectResult = useMemo(() => {
+    return isSelectedAllContract(displaySortedContractList, contractRevokeList);
+  }, [displaySortedContractList, contractRevokeList]);
+
+  const clearRevoke = React.useCallback(() => {
+    setContractRevokeMap({});
+    setAssetRevokeList([]);
+  }, []);
+
+  const patchContractRevokeMap = React.useCallback(
+    (key: string, list: ApprovalSpenderItemToBeRevoked[]) => {
+      setContractRevokeMap((prev) => ({
+        ...prev,
+        [key]: list,
+      }));
+    },
+    [setContractRevokeMap]
+  );
+
+  const onChangeSelectedContractSpenders: IHandleChangeSelectedSpenders<ContractApprovalItem> = React.useCallback(
+    (ctx) => {
+      const selectedItemKey = encodeRevokeItemIndex(ctx.approvalItem);
+
+      setContractRevokeMap((prev) => ({
+        ...prev,
+        [selectedItemKey]: ctx.selectedRevokeItems,
+      }));
+    },
+    []
+  );
+
+  const toggleAllContractRevoke = React.useCallback(
+    (list: ContractApprovalItem[]) => {
+      if (contractSelectResult.isSelectedAll) {
+        setContractRevokeMap({});
+      } else {
+        const nextContractRevokeMap: Record<
+          string,
+          ApprovalSpenderItemToBeRevoked[]
+        > = {};
+        list.forEach((record) => {
+          const key = encodeRevokeItemIndex(record);
+          nextContractRevokeMap[key] = dedupeSelectedRows(
+            record.list
+              .map((contract) => {
+                return toRevokeItem(record, contract, true);
+              })
+              .filter(Boolean) as ApprovalSpenderItemToBeRevoked[]
+          );
+        });
+        setContractRevokeMap(nextContractRevokeMap);
+      }
+    },
+    [contractSelectResult.isSelectedAll]
+  );
+
+  const revokeSummary = useMemo(() => {
+    const summary = summarizeRevoke(currentRevokeList);
+
+    return {
+      currentRevokeList,
+      ...summary,
+    };
+  }, [currentRevokeList]);
+
+  return {
+    handleClickAssetRow,
+    contractRevokeMap,
+    contractRevokeList,
+    contractSelectResult,
+    assetRevokeList,
+    assetSelectResult,
+    revokeSummary,
+    clearRevoke,
+    patchContractRevokeMap,
+    onChangeSelectedContractSpenders,
+    toggleAllAssetRevoke,
+    toggleAllContractRevoke,
   };
 }

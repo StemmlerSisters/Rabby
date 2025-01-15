@@ -28,7 +28,7 @@ const ListScrollWrapper = styled.div`
 
 const ListFooterWrapper = styled.div`
   height: 80px;
-  padding: 20px 0;
+  padding: 20px;
   display: flex;
   justify-content: center;
   position: fixed;
@@ -95,7 +95,6 @@ const ListModal = ({ visible, onOk, onCancel }: ListModalProps) => {
         wallet.setWhitelist(password, list),
       onFinished() {
         setEditWhitelistVisible(false);
-        dispatch.whitelist.getWhitelist();
         message.success({
           duration: 3,
           icon: <i />,
@@ -129,13 +128,14 @@ const ListModal = ({ visible, onOk, onCancel }: ListModalProps) => {
       placement="bottom"
       height={580}
       closable
+      isSupportDarkMode
     >
       <div
         className={clsx('flex flex-col pb-80 h-full', {
           'pb-0': !whitelistEnabled,
         })}
       >
-        <div className="text-center mb-16 mx-[-10px] text-14 text-gray-content">
+        <div className="text-center mb-16 mx-[-10px] text-14 text-r-neutral-body">
           {whitelistEnabled
             ? t('component.Contact.ListModal.whitelistEnabled')
             : t('component.Contact.ListModal.whitelistDisabled')}
@@ -161,7 +161,7 @@ const ListModal = ({ visible, onOk, onCancel }: ListModalProps) => {
             <Button
               type="primary"
               size="large"
-              className="w-[169px] h-[40px] text-15"
+              className="w-[100%] h-[40px] text-15"
               onClick={handleClickEditWhitelist}
             >
               {t('component.Contact.ListModal.editWhitelist')}

@@ -11,9 +11,12 @@ import ConnectWiredSVG from 'ui/assets/approval/connect-wired.svg';
 import ConnectWirelessSVG from 'ui/assets/approval/connect-wireless.svg';
 import ConnectQRCodeSVG from 'ui/assets/approval/connect-qrcode.svg';
 import ConnectWalletConnectSVG from 'ui/assets/approval/connect-walletconnect.svg';
-import { noop } from '@/ui/utils';
+import { noop, useCommonPopupView } from '@/ui/utils';
 import { FooterDoneButton } from './FooterDoneButton';
 import { Dots } from './Dots';
+
+const PRIVATE_KEY_ERROR_HEIGHT = 247;
+const OTHER_ERROR_HEIGHT = 392;
 
 export interface Props {
   hdType: 'wired' | 'wireless' | 'qrcode' | 'privatekey' | 'walletconnect';
@@ -52,6 +55,7 @@ export const ApprovalPopupContainer: React.FC<Props> = ({
   const [iconColor, setIconColor] = React.useState('');
   const [contentColor, setContentColor] = React.useState('');
   const { t } = useTranslation();
+  const { setHeight, height } = useCommonPopupView();
 
   const sendUrl = React.useMemo(() => {
     switch (hdType) {
@@ -74,13 +78,13 @@ export const ApprovalPopupContainer: React.FC<Props> = ({
       case 'SENDING':
         setImage('');
         setIconColor('bg-blue-light');
-        setContentColor('text-gray-title');
+        setContentColor('text-r-neutral-title-1');
         break;
       case 'WAITING':
       case 'SUBMITTING':
         setImage('');
         setIconColor('bg-blue-light');
-        setContentColor('text-gray-title');
+        setContentColor('text-r-neutral-title-1');
         break;
       case 'FAILED':
       case 'REJECTED':
@@ -98,18 +102,38 @@ export const ApprovalPopupContainer: React.FC<Props> = ({
     }
   }, [status]);
 
+  const lastNormalHeight = React.useRef(0);
+
+  React.useEffect(() => {
+    if (
+      height !== lastNormalHeight.current &&
+      height !== OTHER_ERROR_HEIGHT &&
+      height !== PRIVATE_KEY_ERROR_HEIGHT
+    ) {
+      lastNormalHeight.current = height;
+    }
+  }, [height]);
+
+  React.useEffect(() => {
+    if (status === 'FAILED' || status === 'REJECTED') {
+      if (hdType === 'privatekey') {
+        setHeight(PRIVATE_KEY_ERROR_HEIGHT);
+      } else {
+        setHeight(OTHER_ERROR_HEIGHT);
+      }
+    } else {
+      setHeight(lastNormalHeight.current);
+    }
+  }, [setHeight, hdType, status]);
+
   return (
-    <div className={clsx('flex flex-col items-center', 'relative flex-1')}>
-      {sendUrl ? (
-        <div className={clsx('p-10')}>
-          <img src={sendUrl} className={'w-[140px] h-[140px]'} />
-        </div>
-      ) : null}
+    <div className={clsx('flex flex-col items-center', 'flex-1')}>
+      {sendUrl ? <img src={sendUrl} className={'w-[160px] h-[160px]'} /> : null}
       <div
         className={clsx(
           'text-[20px] font-medium leading-[24px]',
           contentColor,
-          hasMoreDescription ? 'mt-[16px]' : 'mt-[24px]',
+          hasMoreDescription ? 'mt-[14px]' : 'mt-[28px]',
           'flex items-center '
         )}
       >
@@ -123,19 +147,23 @@ export const ApprovalPopupContainer: React.FC<Props> = ({
         className={clsx(
           contentColor,
           'mt-[12px]',
-          'text-15 font-normal text-center',
-          'overflow-auto h-[36px]'
+          'text-13 leading-[16px] font-normal text-center',
+          'overflow-auto h-[36px] w-full'
         )}
       >
         {description}
       </div>
 
-      <div className="absolute bottom-0">
+      <div className="absolute bottom-0 left-0 right-0 text-center">
         {status === 'SENDING' && <FooterResend onResend={onRetry} />}
         {status === 'WAITING' && <FooterResend onResend={onRetry} />}
-        {status === 'FAILED' && <FooterResend onResend={onRetry} />}
+        {status === 'FAILED' && (
+          <FooterResendCancelGroup onCancel={onCancel} onResend={onRetry} />
+        )}
         {status === 'RESOLVED' && <FooterDoneButton onDone={onDone} hide />}
-        {status === 'REJECTED' && <FooterResend onResend={onRetry} />}
+        {status === 'REJECTED' && (
+          <FooterResendCancelGroup onCancel={onCancel} onResend={onRetry} />
+        )}
         {status === 'SUBMITTING' && (
           <FooterButton
             text={t('page.signFooterBar.submitTx')}

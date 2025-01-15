@@ -53,7 +53,7 @@ export const PreferMetamaskDapps = () => {
     Popup.info({
       title: t('page.preferMetamaskDapps.howToAdd'),
       closable: true,
-      className: 'prefer-metamask-popup',
+      className: 'prefer-metamask-popup is-support-darkmode',
       height: 270,
       content: (
         <div className="content">
@@ -69,7 +69,9 @@ export const PreferMetamaskDapps = () => {
   return (
     <div className="page-prefer-metamask-dapps">
       <header className="header">
-        <PageHeader>{t('page.preferMetamaskDapps.title')}</PageHeader>
+        <PageHeader canBack={false} closeable>
+          {t('page.preferMetamaskDapps.title')}
+        </PageHeader>
         <div className="desc">{t('page.preferMetamaskDapps.desc')}</div>
       </header>
       {sites?.length ? (
@@ -91,7 +93,7 @@ export const PreferMetamaskDapps = () => {
         />
       )}
       <footer className="footer">
-        <Button type="primary" onClick={handleAdd}>
+        <Button size="large" block type="primary" onClick={handleAdd}>
           {t('page.preferMetamaskDapps.howToAdd')}
         </Button>
       </footer>

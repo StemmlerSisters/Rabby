@@ -13,6 +13,7 @@ import { sortBy } from 'lodash';
 import { NameAndAddress } from '@/ui/component';
 import IconTagYou from 'ui/assets/tag-you.svg';
 import { Trans, useTranslation } from 'react-i18next';
+import { findChain } from '@/utils/chain';
 
 const GnosisAdminItem = ({
   accounts,
@@ -49,7 +50,7 @@ export const GnonisSafeInfo = ({
   const wallet = useWallet();
   const [activeData, setActiveData] = useState<
     | {
-        chain?: Chain;
+        chain?: Chain | null;
         data: BasicSafeInfo;
       }
     | undefined
@@ -65,9 +66,9 @@ export const GnonisSafeInfo = ({
         const info = await wallet.getBasicSafeInfo({ address, networkId });
 
         return {
-          chain: Object.values(CHAINS).find(
-            (chain) => chain.network === networkId
-          ),
+          chain: findChain({
+            networkId: networkId,
+          }),
           data: {
             ...info,
           },
@@ -129,7 +130,7 @@ export const GnonisSafeInfo = ({
       <>
         <div className="rabby-list-item no-hover">
           <div className="rabby-list-item-content border-0">
-            <div className="rabby-list-item-label">
+            <div>
               {t('page.addressDetail.admins')}
               <div className="tabs-container">
                 <div className="tabs">
@@ -154,10 +155,10 @@ export const GnonisSafeInfo = ({
                   })}
                 </div>
               </div>
-              <div className="rabby-list-item-desc text-gray-subTitle">
+              <div className="rabby-list-item-desc text-r-neutral-body">
                 <Trans t={t} i18nKey="page.addressDetail.tx-requires">
                   Any transaction requires{' '}
-                  <span className="text-gray-title text-14">
+                  <span className="text-r-neutral-foot text-14">
                     {{
                       num: `${activeData?.data?.threshold}/${activeData?.data?.owners.length}`,
                     }}

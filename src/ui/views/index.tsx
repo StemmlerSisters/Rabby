@@ -16,6 +16,9 @@ import { useIdleTimer } from 'react-idle-timer';
 import { useRabbyDispatch, useRabbySelector } from '../store';
 import { useMount } from 'react-use';
 import { useMemoizedFn } from 'ahooks';
+import { useThemeModeOnMain } from '../hooks/usePreference';
+import { useSubscribeCurrentAccountChanged } from '../hooks/backgroundState/useAccount';
+import { ForgotPassword } from './ForgotPassword/ForgotPassword';
 const AsyncMainRoute = lazy(() => import('./MainRoute'));
 
 const useAutoLock = () => {
@@ -61,6 +64,9 @@ const useAutoLock = () => {
 
 const Main = () => {
   useAutoLock();
+  useThemeModeOnMain();
+  useSubscribeCurrentAccountChanged();
+
   return (
     <>
       <Route exact path="/">
@@ -69,6 +75,10 @@ const Main = () => {
 
       <Route exact path="/unlock">
         <Unlock />
+      </Route>
+
+      <Route exact path="/forgot-password">
+        <ForgotPassword />
       </Route>
 
       <PrivateRoute exact path="/dashboard">
