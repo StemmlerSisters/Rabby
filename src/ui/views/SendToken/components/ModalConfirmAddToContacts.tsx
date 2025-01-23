@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 
 import styled from 'styled-components';
-import { Button, Form, Input, message } from 'antd';
+import { Button, DrawerProps, Form, Input, message } from 'antd';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -10,11 +10,15 @@ import {
 } from '@/ui/component/Modal/WrapPromise';
 import { Popup } from '@/ui/component';
 import clsx from 'clsx';
-import LessPalette from '@/ui/style/var-defs';
 import { copyTextToClipboard } from '@/ui/utils/clipboard';
 
-import IconCopy from 'ui/assets/send-token/modal/copy.svg';
-import IconSuccess from 'ui/assets/success.svg';
+import IconCopy, {
+  ReactComponent as RcIconCopy,
+} from 'ui/assets/send-token/modal/copy.svg';
+import IconSuccess, {
+  ReactComponent as RcIconSuccess,
+} from 'ui/assets/success.svg';
+import ThemeIcon from '@/ui/component/ThemeMode/ThemeIcon';
 
 const StyledPopup = styled(Popup)`
   .ant-drawer-body {
@@ -38,7 +42,7 @@ const FormInputItem = styled(Form.Item)`
     font-style: normal;
     font-weight: 400;
     line-height: normal;
-    color: ${LessPalette['@color-comment']};
+    color: var(--r-neutral-foot, #babec5);
     height: initial;
 
     &::before {
@@ -56,6 +60,7 @@ interface ConfirmAddToContactsModalProps extends WrappedComponentProps {
   title?: string;
   description?: string;
   checklist?: string[];
+  getContainer?: DrawerProps['getContainer'];
 }
 
 function ModalConfirmAddToContacts({
@@ -67,6 +72,7 @@ function ModalConfirmAddToContacts({
   cancelText,
   confirmText = 'Confirm',
   title = 'Enter Password',
+  getContainer,
 }: ConfirmAddToContactsModalProps) {
   const [visible, setVisible] = useState(false);
   const [form] = Form.useForm();
@@ -120,7 +126,13 @@ function ModalConfirmAddToContacts({
   useEffect(() => {
     setTimeout(() => {
       setVisible(true);
-      inputRef.current?.focus();
+      if (!getContainer) {
+        inputRef.current?.focus();
+      } else {
+        setTimeout(() => {
+          inputRef.current?.focus();
+        }, 500);
+      }
     });
   }, []);
 
@@ -130,6 +142,8 @@ function ModalConfirmAddToContacts({
       title={title}
       onCancel={handleCancel}
       height={266}
+      isSupportDarkMode
+      getContainer={getContainer}
     >
       <Form onFinish={handleSubmit} form={form}>
         <FormInputItem
@@ -154,19 +168,19 @@ function ModalConfirmAddToContacts({
             )}
             type="text"
             size="large"
-            autoFocus
+            autoFocus={!getContainer}
             ref={inputRef}
             spellCheck={false}
           />
         </FormInputItem>
         <div
           className={clsx(
-            `text-${LessPalette['@color-title']}`,
+            'text-r-neutral-title-1',
             'font-medium text-[14px] flex justify-start items-center'
           )}
         >
           {addrToAdd}
-          <img
+          <ThemeIcon
             onClick={() => {
               copyTextToClipboard(addrToAdd).then(() => {
                 message.success({
@@ -184,7 +198,7 @@ function ModalConfirmAddToContacts({
                 });
               });
             }}
-            src={IconCopy}
+            src={RcIconCopy}
             className="ml-[4px] w-[14px] h-[14px] cursor-pointer"
           />
         </div>

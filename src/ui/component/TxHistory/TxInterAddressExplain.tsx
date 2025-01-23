@@ -25,7 +25,7 @@ export const TxInterAddressExplain = ({
       {project?.name ? (
         project.name
       ) : data.other_addr ? (
-        <NameAndAddress address={data.other_addr} />
+        <NameAndAddress address={data.other_addr} copyIcon={!data.is_scam} />
       ) : (
         ''
       )}
@@ -37,7 +37,11 @@ export const TxInterAddressExplain = ({
   if (isCancel) {
     interAddressExplain = t('page.transactions.explain.cancel');
   } else if (isApprove) {
-    const approveToken = tokenDict[data.token_approve?.token_id || ''];
+    const tokenId = data.token_approve?.token_id || '';
+    const tokenUUID = `${data.chain}_token:${tokenId}`;
+
+    const approveToken = tokenDict[tokenId] || tokenDict[tokenUUID];
+
     const amount = data.token_approve?.value || 0;
 
     // todo: translate

@@ -11,9 +11,9 @@ const EditWhitelistWrapper = styled.div`
   position: fixed;
   left: 0;
   top: 0;
-  width: 100vw;
-  height: 100vh;
-  background: #fff;
+  width: 100%;
+  height: 100%;
+  background: var(--r-neutral-bg-1, #3d4251);
   z-index: 100;
   padding: 0 12px 80px 20px;
   display: flex;
@@ -30,7 +30,7 @@ const ListScrollWrapper = styled.div`
 
 const ListFooterWrapper = styled.div`
   height: 80px;
-  padding: 20px 0;
+  padding: 20px;
   display: flex;
   justify-content: center;
   position: fixed;
@@ -45,6 +45,10 @@ const AccountItemSelector = styled.div`
   margin-bottom: 8px;
   &:nth-last-child(1) {
     margin-bottom: 0;
+  }
+  .rabby-checkbox__label {
+    flex: 1;
+    margin-left: 12px;
   }
 `;
 
@@ -73,10 +77,10 @@ const EditWhitelist = ({
         className: 'page-receive-modal edit-whitelist-back-modal',
         content: (
           <div>
-            <h1 className="text-gray-title text-center mb-12">
+            <h1 className="text-r-neutral-title1 text-center mb-12">
               {t('component.Contact.EditWhitelist.backModalTitle')}
             </h1>
-            <p className="text-gray-subTitle text-center text-15 mb-[52px]">
+            <p className="text-r-neutral-body text-center text-15 mb-[52px]">
               {t('component.Contact.EditWhitelist.backModalContent')}
             </p>
             <div className="footer">
@@ -127,10 +131,10 @@ const EditWhitelist = ({
 
   return (
     <EditWhitelistWrapper>
-      <PageHeader onBack={handleClickBack}>
+      <PageHeader onBack={handleClickBack} forceShowBack>
         {t('component.Contact.EditWhitelist.title')}
       </PageHeader>
-      <p className="text-gray-content text-14 mb-20 text-center">
+      <p className="text-r-neutral-body text-14 mb-20 text-center">
         {t('component.Contact.EditWhitelist.tip')}
       </p>
       <ListScrollWrapper>
@@ -139,8 +143,8 @@ const EditWhitelist = ({
             <Checkbox
               width="20px"
               height="20px"
-              className="mr-12"
-              background="#27C193"
+              className="flex-1"
+              background="var(--r-green-default, #2ABB7F)"
               checked={
                 !!checkedList.find((item) =>
                   isSameAddress(account.address, item)
@@ -149,8 +153,9 @@ const EditWhitelist = ({
               onChange={(checked) =>
                 handleCheckAddress(checked, account.address)
               }
-            />
-            <AccountItem account={account} />
+            >
+              <AccountItem account={account} />
+            </Checkbox>
           </AccountItemSelector>
         ))}
       </ListScrollWrapper>
@@ -158,7 +163,7 @@ const EditWhitelist = ({
         <Button
           type="primary"
           size="large"
-          className="w-[215px] h-[40px] text-15"
+          className="w-[100%] h-[40px] text-15"
           onClick={handleSaveWhitelist}
         >
           {t('component.Contact.EditWhitelist.save', {

@@ -42,7 +42,7 @@ export const BlockedButton: React.FC<Props> = ({
   return (
     <div
       className={clsx('flex rounded', {
-        'py-[9px] px-8 bg-orange bg-opacity-20 justify-between -mt-10 mb-20 -mr-4': selected,
+        'py-[9px] px-8 bg-orange bg-opacity-20 justify-between mb-10': selected,
         'float-right justify-end': !selected,
       })}
     >
@@ -70,7 +70,7 @@ export const BlockedButton: React.FC<Props> = ({
             }
           }}
         />
-        <span className="text-black text-12">
+        <span className="text-r-neutral-foot text-12">
           {t('page.dashboard.tokenDetail.blocked')}
         </span>
       </label>

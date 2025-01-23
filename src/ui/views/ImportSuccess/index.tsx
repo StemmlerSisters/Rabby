@@ -5,17 +5,23 @@ import { matomoRequestEvent } from '@/utils/matomo-request';
 import { sortBy } from 'lodash';
 import { StrayPageWithButton } from 'ui/component';
 import AddressItem from 'ui/component/AddressList/AddressItem';
-import { getUiType } from 'ui/utils';
+import { getUiType, useApproval } from 'ui/utils';
 import { Account } from 'background/service/preference';
 import clsx from 'clsx';
 import stats from '@/stats';
-import { KEYRING_ICONS, WALLET_BRAND_CONTENT, KEYRING_CLASS } from 'consts';
+import {
+  KEYRING_ICONS,
+  WALLET_BRAND_CONTENT,
+  KEYRING_CLASS,
+  HardwareKeyrings,
+} from 'consts';
 import { IconImportSuccess } from 'ui/assets';
 import SuccessLogo from 'ui/assets/success-logo.svg';
 import './index.less';
 import { useMedia } from 'react-use';
 import { connectStore, useRabbyDispatch } from '@/ui/store';
 import { Chain } from '@debank/common';
+import { ga4 } from '@/utils/ga4';
 
 const ImportSuccess = ({ isPopup = false }: { isPopup?: boolean }) => {
   const history = useHistory();
@@ -45,6 +51,7 @@ const ImportSuccess = ({ isPopup = false }: { isPopup?: boolean }) => {
     isMnemonics = false,
     importedLength = 0,
   } = state;
+  const [, resolveApproval] = useApproval();
 
   const handleNextClick = async (e: React.MouseEvent<HTMLElement>) => {
     e?.stopPropagation();
@@ -56,6 +63,12 @@ const ImportSuccess = ({ isPopup = false }: { isPopup?: boolean }) => {
 
       return;
     }
+
+    if (getUiType().isNotification) {
+      resolveApproval();
+      return;
+    }
+
     history.push('/dashboard');
   };
   const importedIcon =
@@ -73,7 +86,9 @@ const ImportSuccess = ({ isPopup = false }: { isPopup?: boolean }) => {
   };
 
   useEffect(() => {
-    if (Object.values(KEYRING_CLASS.HARDWARE).includes(accounts[0].type)) {
+    if (
+      Object.values(KEYRING_CLASS.HARDWARE).includes(accounts[0].type as any)
+    ) {
       stats.report('importHardware', {
         type: accounts[0].type,
       });
@@ -83,6 +98,10 @@ const ImportSuccess = ({ isPopup = false }: { isPopup?: boolean }) => {
         category: 'User',
         action: 'importAddress',
         label: accounts[0].type,
+      });
+
+      ga4.fireEvent(`Import_${accounts[0].type}`, {
+        event_category: 'Import Address',
       });
     }
 
@@ -102,23 +121,17 @@ const ImportSuccess = ({ isPopup = false }: { isPopup?: boolean }) => {
     >
       {isPopup &&
         (!isWide ? (
-          <header className="create-new-header create-password-header h-[200px]">
+          <header className="create-new-header create-password-header h-[200px] dark:bg-r-blue-disable">
             <img
-              className="ml-[12px]"
-              src="/images/logo-rabby.svg"
-              alt="rabby logo"
-            />
-            <img
-              className="w-[80px] h-[80px] mx-auto mb-[16px] mt-[-4px]"
+              className="w-[60px] h-[60px] mx-auto mb-[20px] mt-[-4px]"
               src={SuccessLogo}
             />
-            <p className="text-24 mb-4 mt-0 text-white text-center font-bold">
+            <p className="text-20 mb-4 mt-0 text-white text-center font-bold">
               {title || t('page.importSuccess.title')}
             </p>
-            <img src="/images/success-mask.png" className="mask" />
           </header>
         ) : (
-          <div className="create-new-header create-password-header h-[200px]">
+          <div className="create-new-header create-password-header h-[200px] dark:bg-r-blue-disable">
             <div className="rabby-container">
               <img
                 className="w-[80px] h-[80px] mx-auto mb-[16px] mt-[-4px]"
@@ -168,7 +181,7 @@ const ImportSuccess = ({ isPopup = false }: { isPopup?: boolean }) => {
           >
             {sortBy(accounts, (item) => item?.index).map((account, index) => (
               <AddressItem
-                className="mb-12 rounded bg-white py-12 pl-16 h-[92px] flex"
+                className="mb-12 rounded bg-r-neutral-card-1 py-12 pl-16 h-[92px] flex"
                 key={account.address}
                 account={account}
                 showAssets
