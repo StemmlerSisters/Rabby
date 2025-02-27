@@ -20,9 +20,9 @@ const ErrorMsg = styled.div`
 `;
 
 const Footer = styled.div`
-  height: 76px;
-  background: #ffffff;
-  border-top: 1px solid #e5e9ef;
+  height: 84px;
+  border-top: 0.5px solid var(--r-neutral-line, rgba(255, 255, 255, 0.1));
+  background: var(--r-neutral-card-1, rgba(255, 255, 255, 0.06));
   padding: 16px 20px;
   display: flex;
   justify-content: space-between;
@@ -35,16 +35,25 @@ const Footer = styled.div`
 const EditRPCWrapped = styled.div`
   position: relative;
   height: 100%;
-  .rpc-input {
+  .rpc-input.rpc-input {
     height: 52px;
-    width: 360px;
+
+    height: 52px;
+    width: 100%;
     margin-left: auto;
     margin-right: auto;
-    background: #f5f6fa;
-    border: 1px solid #e5e9ef;
+    background: transparent !important;
+    border: 1px solid var(--r-neutral-line, #d3d8e0) !important;
     border-radius: 6px;
+
+    color: var(--r-neutral-title1, #192945) !important;
+    font-size: 15px;
+    /* font-weight: 500; */
+    &:focus {
+      border-color: var(--r-blue-default, #7084ff) !important;
+    }
     &.has-error {
-      border-color: #ec5151;
+      border-color: #ec5151 !important;
     }
   }
 `;
@@ -133,6 +142,7 @@ const EditRPCModal = ({
       style={{
         zIndex: 1001,
       }}
+      isSupportDarkMode
     >
       <EditRPCWrapped>
         <PageHeader forceShowBack onBack={onCancel} className="pt-0">
@@ -143,10 +153,10 @@ const EditRPCModal = ({
             className="w-[56px] h-[56px] mx-auto mb-12"
             src={chainItem?.logo || ''}
           />
-          <div className="mb-8 text-20 text-gray-title leading-none">
+          <div className="mb-8 text-20 text-r-neutral-title-1 leading-none">
             {chainItem?.name}
           </div>
-          <div className="mb-8 text-14 text-gray-title text-left">
+          <div className="mb-8 text-14 text-r-neutral-title-1 text-left">
             {t('page.customRpc.EditRPCModal.rpcUrl')}
           </div>
         </div>

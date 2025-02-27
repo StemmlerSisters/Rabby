@@ -1,21 +1,23 @@
 import { Badge, Tooltip } from 'antd';
 import { ConnectedSite } from 'background/service/permission';
 import clsx from 'clsx';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
 import { matomoRequestEvent } from '@/utils/matomo-request';
 import IconAlertRed from 'ui/assets/alert-red.svg';
-import IconQuene from 'ui/assets/dashboard/quene.svg';
-import IconSecurity from 'ui/assets/dashboard/security.svg';
-import IconSendToken from 'ui/assets/dashboard/sendtoken.png';
-import IconSwap from 'ui/assets/dashboard/swap.svg';
-import IconReceive from 'ui/assets/dashboard/receive.svg';
-import IconGasTopUp from 'ui/assets/dashboard/gas-top-up.svg';
-import IconNFT from 'ui/assets/dashboard/nft.svg';
-import IconTransactions from 'ui/assets/dashboard/transactions.png';
-import IconAddresses from 'ui/assets/dashboard/addresses.svg';
-import IconFeedback from 'ui/assets/dashboard/feedback.svg';
-import IconMoreSettings from 'ui/assets/dashboard/more-settings.svg';
+import { ReactComponent as RcIconQuene } from 'ui/assets/dashboard/quene.svg';
+import { ReactComponent as RcIconSecurity } from 'ui/assets/dashboard/security.svg';
+import { ReactComponent as RcIconSendToken } from 'ui/assets/dashboard/sendtoken.svg';
+import { ReactComponent as RcIconSwap } from 'ui/assets/dashboard/swap.svg';
+import { ReactComponent as RcIconReceive } from 'ui/assets/dashboard/receive.svg';
+import { ReactComponent as RcIconBridge } from 'ui/assets/dashboard/bridge.svg';
+
+import { ReactComponent as RcIconNFT } from 'ui/assets/dashboard/nft.svg';
+import { ReactComponent as RcIconTransactions } from 'ui/assets/dashboard/transactions.svg';
+import { ReactComponent as RcIconAddresses } from 'ui/assets/dashboard/addresses.svg';
+import { ReactComponent as RcIconEco } from 'ui/assets/dashboard/icon-eco.svg';
+
+import { ReactComponent as RcIconMoreSettings } from 'ui/assets/dashboard/more-settings.svg';
 import IconDrawer from 'ui/assets/drawer.png';
 import {
   getCurrentConnectSite,
@@ -24,15 +26,19 @@ import {
 } from 'ui/utils';
 import { CurrentConnection } from '../CurrentConnection';
 import ChainSelectorModal from 'ui/component/ChainSelector/Modal';
-import { RecentConnections, Settings } from '../index';
+import { Settings } from '../index';
 import './style.less';
-import { CHAINS_ENUM } from '@/constant';
+import { CHAINS_ENUM, ThemeIconType, KEYRING_TYPE } from '@/constant';
 import { useAsync } from 'react-use';
 import { useRabbySelector } from '@/ui/store';
-import FeedbackPopup from '../Feedback';
 import { GasPriceBar } from '../GasPriceBar';
-import { ClaimRabbyBadgeModal } from '../ClaimRabbyBadgeModal';
+import { ClaimRabbyFreeGasBadgeModal } from '../ClaimRabbyBadgeModal/freeGasBadgeModal';
 import { useTranslation } from 'react-i18next';
+import ThemeIcon from '@/ui/component/ThemeMode/ThemeIcon';
+import { EcologyPopup } from '../EcologyPopup';
+import { appIsDev } from '@/utils/env';
+import { ga4 } from '@/utils/ga4';
+import { findChainByID } from '@/utils/chain';
 
 export default ({
   gnosisPendingCount,
@@ -60,10 +66,8 @@ export default ({
     CHAINS_ENUM.ETH
   );
   const [drawerAnimation, setDrawerAnimation] = useState<string | null>(null);
-  const [connectedDappsVisible, setConnectedDappsVisible] = useState(false);
   const [badgeModalVisible, setBadgeModalVisible] = useState(false);
 
-  const [feedbackVisible, setFeedbackVisible] = useState(false);
   const [settingVisible, setSettingVisible] = useState(false);
   const [currentConnect, setCurrentConnect] = useState<
     ConnectedSite | null | undefined
@@ -76,6 +80,11 @@ export default ({
   const [isShowReceiveModal, setIsShowReceiveModal] = useState(
     trigger === 'receive' && showChainsModal
   );
+
+  const [isShowEcology, setIsShowEcologyModal] = useState(false);
+
+  const [safeSupportChains, setSafeSupportChains] = useState<CHAINS_ENUM[]>([]);
+
   const wallet = useWallet();
 
   const account = useRabbySelector((state) => state.account.currentAccount);
@@ -83,12 +92,19 @@ export default ({
   const [approvalRiskAlert, setApprovalRiskAlert] = useState(0);
 
   const { value: approvalState } = useAsync(async () => {
-    if (account?.address) {
+    if (
+      account?.address &&
+      (account.type !== KEYRING_TYPE.WatchAddressKeyring || appIsDev)
+    ) {
       const data = await wallet.openapi.approvalStatus(account.address);
       return data;
     }
     return;
   }, [account?.address]);
+
+  const isSafe = useMemo(() => {
+    return account?.type === KEYRING_TYPE.GnosisKeyring;
+  }, [account]);
 
   useEffect(() => {
     if (approvalState) {
@@ -113,13 +129,6 @@ export default ({
     setSettingVisible(!settingVisible);
     setDashboardReload();
   };
-
-  const showFeedbackModal = useCallback(
-    (nextVal = !feedbackVisible) => {
-      setFeedbackVisible(nextVal);
-    },
-    [feedbackVisible]
-  );
 
   useEffect(() => {
     getCurrentSite();
@@ -147,12 +156,32 @@ export default ({
     }
   }, [showDrawer]);
 
+  const getSafeNetworks = async () => {
+    if (!account) return;
+    const chainIds = await wallet.getGnosisNetworkIds(account.address);
+    const chains: CHAINS_ENUM[] = [];
+    chainIds.forEach((id) => {
+      const chain = findChainByID(Number(id));
+      if (chain) {
+        chains.push(chain.enum);
+      }
+    });
+    setSafeSupportChains(chains);
+  };
+
+  useEffect(() => {
+    if (isSafe) {
+      getSafeNetworks();
+    }
+  }, [isSafe]);
+
   type IPanelItem = {
-    icon: string;
+    icon: ThemeIconType;
     content: string;
     onClick: import('react').MouseEventHandler<HTMLElement>;
     badge?: number;
     badgeAlert?: boolean;
+    badgeClassName?: string;
     iconSpin?: boolean;
     hideForGnosis?: boolean;
     showAlert?: boolean;
@@ -164,7 +193,7 @@ export default ({
 
   const panelItems = {
     swap: {
-      icon: IconSwap,
+      icon: RcIconSwap,
       eventKey: 'Swap',
       content: t('page.dashboard.home.panel.swap'),
       onClick: () => {
@@ -172,29 +201,29 @@ export default ({
       },
     } as IPanelItem,
     send: {
-      icon: IconSendToken,
+      icon: RcIconSendToken,
       eventKey: 'Send',
       content: t('page.dashboard.home.panel.send'),
       onClick: () => history.push('/send-token?rbisource=dashboard'),
     } as IPanelItem,
+    bridge: {
+      icon: RcIconBridge,
+      eventKey: 'Bridge',
+      content: t('page.dashboard.home.panel.bridge'),
+      onClick: () => {
+        history.push('/bridge');
+      },
+    } as IPanelItem,
     receive: {
-      icon: IconReceive,
+      icon: RcIconReceive,
       eventKey: 'Receive',
       content: t('page.dashboard.home.panel.receive'),
       onClick: () => {
         setIsShowReceiveModal(true);
       },
     } as IPanelItem,
-    gasTopUp: {
-      icon: IconGasTopUp,
-      eventKey: 'Gas Top Up',
-      content: t('page.dashboard.home.panel.gasTopUp'),
-      onClick: () => {
-        history.push('/gas-top-up');
-      },
-    } as IPanelItem,
     queue: {
-      icon: IconQuene,
+      icon: RcIconQuene,
       eventKey: 'Queue',
       content: t('page.dashboard.home.panel.queue'),
       badge: gnosisPendingCount,
@@ -203,7 +232,7 @@ export default ({
       },
     } as IPanelItem,
     transactions: {
-      icon: IconTransactions,
+      icon: RcIconTransactions,
       eventKey: 'Transactions',
       content: t('page.dashboard.home.panel.transactions'),
       onClick: () => {
@@ -211,35 +240,23 @@ export default ({
       },
     } as IPanelItem,
     security: {
-      icon: IconSecurity,
+      icon: RcIconSecurity,
       eventKey: 'Approvals',
       content: t('page.dashboard.home.panel.approvals'),
       onClick: async (evt) => {
-        // history.push('/popup/approval-manage');
-        if (process.env.NODE_ENV !== 'production' && evt.ctrlKey) {
-          history.push('/popup/approval-manage');
-          return;
-        }
-
         openInternalPageInTab('approval-manage');
       },
       badge: approvalRiskAlert,
       badgeAlert: approvalRiskAlert > 0,
     } as IPanelItem,
-    feedback: {
-      icon: IconFeedback,
-      eventKey: 'Feedback',
-      content: t('page.dashboard.home.panel.feedback'),
-      onClick: showFeedbackModal,
-    } as IPanelItem,
     more: {
-      icon: IconMoreSettings,
+      icon: RcIconMoreSettings,
       eventKey: 'More',
       content: t('page.dashboard.home.panel.more'),
       onClick: toggleShowMoreSettings,
     } as IPanelItem,
     address: {
-      icon: IconAddresses,
+      icon: RcIconAddresses,
       eventKey: 'Manage Address',
       content: t('page.dashboard.home.panel.manageAddress'),
       onClick: () => {
@@ -247,11 +264,19 @@ export default ({
       },
     } as IPanelItem,
     nft: {
-      icon: IconNFT,
+      icon: RcIconNFT,
       eventKey: 'NFT',
       content: t('page.dashboard.home.panel.nft'),
       onClick: () => {
         history.push('/nft');
+      },
+    } as IPanelItem,
+    ecology: {
+      icon: RcIconEco,
+      eventKey: 'Ecology',
+      content: t('page.dashboard.home.panel.ecology'),
+      onClick: () => {
+        setIsShowEcologyModal(true);
       },
     } as IPanelItem,
   };
@@ -263,12 +288,11 @@ export default ({
       'swap',
       'send',
       'receive',
-      'nft',
-      // 'queue',
+      'bridge',
       'transactions',
-      'gasTopUp',
+      'nft',
       'security',
-      'feedback',
+      'ecology',
       'more',
     ];
   } else {
@@ -276,11 +300,11 @@ export default ({
       'swap',
       'send',
       'receive',
-      'nft',
+      'bridge',
       'transactions',
-      'gasTopUp',
+      'nft',
       'security',
-      'feedback',
+      'ecology',
       'more',
     ];
   }
@@ -311,7 +335,7 @@ export default ({
                 autoAdjustOverflow={false}
               >
                 <div key={index} className="disable-direction">
-                  <img src={item.icon} className="images" />
+                  <ThemeIcon src={item.icon} className="images" />
                   <div>{item.content} </div>
                 </div>
               </Tooltip>
@@ -324,20 +348,30 @@ export default ({
                     action: 'clickEntry',
                     label: item.eventKey,
                   });
+
+                  ga4.fireEvent(`Entry_${item.eventKey}`, {
+                    event_category: 'Dashboard',
+                  });
+
                   item?.onClick(evt);
                 }}
                 className="direction pointer"
               >
                 {item.showAlert && (
-                  <img src={IconAlertRed} className="icon icon-alert" />
+                  <ThemeIcon src={IconAlertRed} className="icon icon-alert" />
                 )}
                 {item.badge ? (
                   <Badge
                     count={item.badge}
                     size="small"
-                    className={item.badgeAlert ? 'alert' : ''}
+                    className={clsx(
+                      {
+                        alert: item.badgeAlert && !item.badgeClassName,
+                      },
+                      item.badgeClassName
+                    )}
                   >
-                    <img
+                    <ThemeIcon
                       src={item.icon}
                       className={[item.iconSpin && 'icon-spin', 'images']
                         .filter(Boolean)
@@ -345,7 +379,7 @@ export default ({
                     />
                   </Badge>
                 ) : (
-                  <img src={item.icon} className="images" />
+                  <ThemeIcon src={item.icon} className="images" />
                 )}
                 <div>{item.content} </div>
                 {item.commingSoonBadge && (
@@ -375,6 +409,7 @@ export default ({
         className="receive-chain-select-modal"
         value={CHAINS_ENUM.ETH}
         visible={isShowReceiveModal}
+        showRPCStatus
         onChange={(chain) => {
           history.push(`/receive?rbisource=dashboard&chain=${chain}`);
           setIsShowReceiveModal(false);
@@ -382,36 +417,28 @@ export default ({
         onCancel={() => {
           setIsShowReceiveModal(false);
         }}
+        supportChains={isSafe ? safeSupportChains : undefined}
+        disabledTips={t('page.dashboard.GnosisWrongChainAlertBar.notDeployed')}
       />
 
       <Settings
         visible={settingVisible}
         onClose={toggleShowMoreSettings}
-        onOpenConnectedDapps={() => {
-          setConnectedDappsVisible(true);
-          setSettingVisible(false);
-        }}
         onOpenBadgeModal={() => {
           setBadgeModalVisible(true);
           setSettingVisible(false);
         }}
       />
-      <ClaimRabbyBadgeModal
+      <ClaimRabbyFreeGasBadgeModal
         visible={badgeModalVisible}
         onCancel={() => {
           setBadgeModalVisible(false);
         }}
       />
 
-      <FeedbackPopup
-        visible={feedbackVisible}
-        onClose={() => showFeedbackModal(false)}
-      />
-      <RecentConnections
-        visible={connectedDappsVisible}
-        onClose={() => {
-          setConnectedDappsVisible(false);
-        }}
+      <EcologyPopup
+        visible={isShowEcology}
+        onClose={() => setIsShowEcologyModal(false)}
       />
     </div>
   );
