@@ -1,4 +1,4 @@
-import { Button, Form, Input } from 'antd';
+import { Button, DrawerProps, Form, Input } from 'antd';
 import styled from 'styled-components';
 import clsx from 'clsx';
 import React, {
@@ -10,8 +10,26 @@ import React, {
 } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Popup, Checkbox, Field } from 'ui/component';
-import LessPalette from '@/ui/style/var-defs';
 import { WrappedComponentProps, wrapModalPromise } from '../Modal/WrapPromise';
+
+const AuthFormItemWrapper = styled.div`
+  .ant-form-item-has-error {
+    .ant-input {
+      border-color: #f24822 !important;
+    }
+  }
+  .ant-input.ant-input-lg.popup-input {
+    border: 1px solid var(--r-neutral-line, #d3d8e0) !important;
+    background: transparent !important;
+    &::placeholder {
+      color: var(--r-neutral-foot, #6a7587) !important;
+    }
+    &:focus,
+    &:hover {
+      border-color: var(--r-blue-default, #7084ff) !important;
+    }
+  }
+`;
 
 interface AuthenticationModalProps extends WrappedComponentProps {
   validationHandler?(password: string): Promise<void>;
@@ -20,6 +38,8 @@ interface AuthenticationModalProps extends WrappedComponentProps {
   title?: string;
   description?: string;
   checklist?: string[];
+  placeholder?: string;
+  getContainer?: DrawerProps['getContainer'];
 }
 
 const Description = styled.div`
@@ -28,21 +48,21 @@ const Description = styled.div`
   font-size: 14px;
   line-height: 16px;
   text-align: center;
-  color: #4b4d59;
+  color: var(--r-neutral-body, #d3d8e0);
 `;
 
 const FieldList = styled.div`
   margin-bottom: 20px;
 
   .field {
-    background: ${LessPalette['@color-bg']};
+    background: var(--r-neutral-card-2, rgba(255, 255, 255, 0.06));
     border-radius: 6px;
     padding: 16px 12px;
 
     font-weight: 400;
     font-size: 14px;
     line-height: 18px;
-    color: ${LessPalette['@color-title']};
+    color: var(--r-neutral-title-1, #f7fafc);
     border: 1px solid transparent;
     margin-bottom: 8px;
 
@@ -109,6 +129,8 @@ const AuthenticationModal = ({
   cancelText,
   confirmText = 'Confirm',
   title = 'Enter Password',
+  placeholder,
+  getContainer,
 }: AuthenticationModalProps) => {
   const [visible, setVisible] = useState(false);
   const [form] = Form.useForm();
@@ -166,6 +188,10 @@ const AuthenticationModal = ({
       title={title}
       onCancel={handleCancel}
       height={height}
+      isSupportDarkMode
+      getContainer={getContainer}
+      push={false}
+      key={String(visible)}
     >
       {description && <Description>{description}</Description>}
       {checklist.length > 0 && (
@@ -182,7 +208,8 @@ const AuthenticationModal = ({
                     checked={q.checked}
                     width={'20px'}
                     height={'20px'}
-                    background="#27C193"
+                    background="var(--r-green-default, #2ABB7F)"
+                    unCheckBackground="var(--r-neutral-line, rgba(255, 255, 255, 0.1))"
                     onChange={handleClickItem}
                   />
                 }
@@ -196,25 +223,30 @@ const AuthenticationModal = ({
         </FieldList>
       )}
       <Form onFinish={handleSubmit} form={form}>
-        <Form.Item
-          name="password"
-          rules={[
-            {
-              required: true,
-              message: t('component.AuthenticationModal.passwordRequired'),
-            },
-          ]}
-        >
-          <Input
-            className="popup-input"
-            placeholder={t('component.AuthenticationModal.passwordPlaceholder')}
-            type="password"
-            size="large"
-            autoFocus
-            ref={inputRef}
-            spellCheck={false}
-          />
-        </Form.Item>
+        <AuthFormItemWrapper>
+          <Form.Item
+            name="password"
+            rules={[
+              {
+                required: true,
+                message: t('component.AuthenticationModal.passwordRequired'),
+              },
+            ]}
+          >
+            <Input
+              className="popup-input"
+              placeholder={
+                placeholder ??
+                t('component.AuthenticationModal.passwordPlaceholder')
+              }
+              type="password"
+              size="large"
+              autoFocus
+              ref={inputRef}
+              spellCheck={false}
+            />
+          </Form.Item>
+        </AuthFormItemWrapper>
         <div
           className={clsx(
             'flex pt-6 popup-footer px-20',

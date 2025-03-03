@@ -3,6 +3,7 @@ import { Object } from 'ts-toolbelt';
 import { WalletController as WalletControllerClass } from 'background/controller/wallet';
 import { IExtractFromPromise } from './type';
 import { CommonPopupComponentName } from '../views/CommonPopup';
+import { PopupProps } from '../component/Popup';
 
 // TODO: implement here but not used now to avoid too much ts checker error.
 // we will use it on almost biz store ready.
@@ -40,8 +41,11 @@ const useCommonPopupViewState = () => {
     address: string;
     brandName: string;
     realBrandName?: string;
+    chainId?: number;
+    type: string;
   }>();
   const [data, setData] = useState<any>();
+  const [popupProps, setPopupProps] = useState<PopupProps | undefined>();
 
   const activePopup = (name: CommonPopupComponentName) => {
     setComponentName(name);
@@ -78,6 +82,8 @@ const useCommonPopupViewState = () => {
     activeApprovalPopup,
     data,
     setData,
+    popupProps,
+    setPopupProps,
   };
 };
 

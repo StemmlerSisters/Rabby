@@ -8,9 +8,14 @@ import {
   permissionService,
 } from './index';
 import { TotalBalanceResponse, TokenItem } from './openapi';
-import { HARDWARE_KEYRING_TYPES, EVENTS, CHAINS_ENUM, LANGS } from 'consts';
-import { browser } from 'webextension-polyfill-ts';
+import { EVENTS, CHAINS_ENUM, LANGS, DARK_MODE_TYPE } from 'consts';
+import browser from 'webextension-polyfill';
 import semver from 'semver-compare';
+import { syncStateToUI } from '../utils/broadcastToUI';
+import { BROADCAST_TO_UI_EVENTS } from '@/utils/broadcastToUI';
+import dayjs from 'dayjs';
+import type { IExtractFromPromise } from '@/ui/utils/type';
+import { OpenApiService } from '@rabby-wallet/rabby-api';
 
 const version = process.env.release || '0';
 
@@ -48,6 +53,9 @@ export type IHighlightedAddress = {
   brandName: Account['brandName'];
   address: Account['address'];
 };
+export type CurvePointCollection = IExtractFromPromise<
+  ReturnType<OpenApiService['getNetCurve']>
+>;
 export interface PreferenceStore {
   currentAccount: Account | undefined | null;
   externalLinkAck: boolean;
@@ -55,9 +63,23 @@ export interface PreferenceStore {
   balanceMap: {
     [address: string]: TotalBalanceResponse;
   };
+  curvePointsMap: {
+    [address: string]: CurvePointCollection;
+  };
   testnetBalanceMap: {
     [address: string]: TotalBalanceResponse;
   };
+  /**
+   * @why only mainnet assets would be calculated in Dashboard, we don't need curvePointsMap for testnet
+   */
+  // testnetCurveDataMap: {
+  //   [address: string]: {
+  //     curveData: CurvePointCollection;
+  //   };
+  // };
+  /**
+   * @deprecated
+   */
   useLedgerLive: boolean;
   locale: string;
   watchAddressPreference: Record<string, number>;
@@ -91,7 +113,26 @@ export interface PreferenceStore {
   autoLockTime?: number;
   hiddenBalance?: boolean;
   isShowTestnet?: boolean;
+  themeMode?: DARK_MODE_TYPE;
+  addressSortStore: AddressSortStore;
+  safeSelfHostConfirm?: Record<string, boolean>;
+
+  /** @deprecated */
+  reserveGasOnSendToken?: boolean;
+  isHideEcologyNoticeDict?: Record<string | number, boolean>;
 }
+
+export interface AddressSortStore {
+  search: string;
+  sortType: 'usd' | 'addressType' | 'alphabet';
+  lastScrollOffset?: number;
+  lastCurrentRecordTime?: number;
+}
+
+const defaultAddressSortStore: AddressSortStore = {
+  search: '',
+  sortType: 'usd',
+};
 
 class PreferenceService {
   store!: PreferenceStore;
@@ -108,6 +149,7 @@ class PreferenceService {
         externalLinkAck: false,
         hiddenAddresses: [],
         balanceMap: {},
+        curvePointsMap: {},
         testnetBalanceMap: {},
         useLedgerLive: false,
         locale: defaultLang,
@@ -133,8 +175,16 @@ class PreferenceService {
         collectionStarred: [],
         hiddenBalance: false,
         isShowTestnet: false,
+        themeMode: DARK_MODE_TYPE.light,
+        addressSortStore: {
+          ...defaultAddressSortStore,
+        },
+        reserveGasOnSendToken: true,
+        isHideEcologyNoticeDict: {},
+        safeSelfHostConfirm: {},
       },
     });
+
     if (
       !this.store.locale ||
       !LANGS.find((item) => item.code === this.store.locale)
@@ -175,9 +225,6 @@ class PreferenceService {
     if (!this.store.testnetBalanceMap) {
       this.store.testnetBalanceMap = {};
     }
-    if (!this.store.useLedgerLive) {
-      this.store.useLedgerLive = false;
-    }
     if (!this.store.highligtedAddresses) {
       this.store.highligtedAddresses = [];
     }
@@ -217,10 +264,59 @@ class PreferenceService {
     if (!this.store.isShowTestnet) {
       this.store.isShowTestnet = false;
     }
+    if (!this.store.addressSortStore) {
+      this.store.addressSortStore = {
+        ...defaultAddressSortStore,
+      };
+    }
+    if (!this.store.isHideEcologyNoticeDict) {
+      this.store.isHideEcologyNoticeDict = {};
+    }
+    if (!this.store.safeSelfHostConfirm) {
+      this.store.safeSelfHostConfirm = {};
+    }
+  };
+
+  hasConfirmSafeSelfHost = (networkId: string) => {
+    if (this.store.safeSelfHostConfirm?.[networkId]) {
+      return true;
+    }
+    return false;
+  };
+
+  setConfirmSafeSelfHost = (networkId: string) => {
+    if (!this.store.safeSelfHostConfirm) {
+      this.store.safeSelfHostConfirm = {
+        [networkId]: true,
+      };
+    } else {
+      this.store.safeSelfHostConfirm[networkId] = true;
+    }
   };
 
   getPreference = (key?: string) => {
-    return key ? this.store[key] : this.store;
+    if (!key || ['search', 'lastCurrent'].includes(key)) {
+      this.resetAddressSortStoreExpiredValue();
+    }
+    if (key === 'isShowTestnet') {
+      return true;
+    }
+    return key ? this.store[key] : { ...this.store, isShowTestnet: true };
+  };
+
+  setPreferencePartials = (data: Partial<PreferenceStore>) => {
+    Object.keys(data).forEach((k) => {
+      if (k in this.store) {
+        this.store[k] = data[k];
+      } else {
+        const err = `Preference key ${k} not found`;
+        if (process.env.DEBUG) {
+          throw new Error(err);
+        } else {
+          console.error(err);
+        }
+      }
+    });
   };
 
   getTokenApprovalChain = (address: string) => {
@@ -264,26 +360,26 @@ class PreferenceService {
 
   getLastSelectedSwapPayToken = (address: string) => {
     const key = address.toLowerCase();
-    return this.store?.lastSelectedSwapPayToken?.[key];
+    return this.store.lastSelectedSwapPayToken?.[key];
   };
 
   setLastSelectedSwapPayToken = (address: string, token: TokenItem) => {
     const key = address.toLowerCase();
     this.store.lastSelectedSwapPayToken = {
-      ...this.store?.lastSelectedSwapPayToken,
+      ...this.store.lastSelectedSwapPayToken,
       [key]: token,
     };
   };
 
   getLastSelectedGasTopUpChain = (address: string) => {
     const key = address.toLowerCase();
-    return this.store?.lastSelectedGasTopUpChain?.[key];
+    return this.store.lastSelectedGasTopUpChain?.[key];
   };
 
   setLastSelectedGasTopUpChain = (address: string, chain: CHAINS_ENUM) => {
     const key = address.toLowerCase();
     this.store.lastSelectedGasTopUpChain = {
-      ...this.store?.lastSelectedGasTopUpChain,
+      ...this.store.lastSelectedGasTopUpChain,
       [key]: chain,
     };
   };
@@ -377,10 +473,7 @@ class PreferenceService {
       sessionService.broadcastEvent('accountsChanged', [
         account.address.toLowerCase(),
       ]);
-      eventBus.emit(EVENTS.broadcastToUI, {
-        method: 'accountsChanged',
-        params: account,
-      });
+      syncStateToUI(BROADCAST_TO_UI_EVENTS.accountsChanged, account);
     }
   };
 
@@ -397,14 +490,6 @@ class PreferenceService {
     const testnetBalanceMap = this.store.testnetBalanceMap || {};
     this.store.testnetBalanceMap = {
       ...testnetBalanceMap,
-      [address.toLowerCase()]: data,
-    };
-  };
-
-  updateAddressBalance = (address: string, data: TotalBalanceResponse) => {
-    const balanceMap = this.store.balanceMap || {};
-    this.store.balanceMap = {
-      ...balanceMap,
       [address.toLowerCase()]: data,
     };
   };
@@ -427,15 +512,63 @@ class PreferenceService {
     }
   };
 
-  getAddressBalance = (address: string): TotalBalanceResponse | null => {
-    const balanceMap = this.store.balanceMap || {};
-    return balanceMap[address.toLowerCase()] || null;
+  updateBalanceAboutCache = (
+    address: string,
+    data: {
+      totalBalance?: TotalBalanceResponse;
+      curvePoints?: CurvePointCollection;
+    }
+  ) => {
+    const addr = address.toLowerCase();
+    if (data.totalBalance) {
+      const balanceMap = this.store.balanceMap || {};
+      this.store.balanceMap = {
+        ...balanceMap,
+        [addr]: data.totalBalance,
+      };
+    }
+
+    if (data.curvePoints) {
+      const curvePointsMap = this.store.curvePointsMap || {};
+      this.store.curvePointsMap = {
+        ...curvePointsMap,
+        [addr]: data.curvePoints,
+      };
+    }
   };
 
-  getTestnetAddressBalance = (address: string): TotalBalanceResponse | null => {
-    const balanceMap = this.store.testnetBalanceMap || {};
-    return balanceMap[address.toLowerCase()] || null;
+  getBalanceAboutCacheByAddress = (address: string) => {
+    const addr = address.toLowerCase();
+    const balanceMap = this.store.balanceMap || {};
+    const curvePointsMap = this.store.curvePointsMap || {};
+
+    return {
+      totalBalance: balanceMap[addr] || null,
+      curvePoints: curvePointsMap[addr] || null,
+    };
   };
+
+  getBalanceAboutCacheMap = () => {
+    return {
+      balanceMap: this.store.balanceMap || {},
+      curvePointsMap: this.store.curvePointsMap || {},
+    };
+  };
+
+  removeCurvePoints = (address: string) => {
+    const key = address.toLowerCase();
+    if (key in this.store.curvePointsMap) {
+      const map = this.store.curvePointsMap;
+      delete map[key];
+      this.store.curvePointsMap = map;
+    }
+  };
+
+  /** useless now, maybe useful in the future */
+  // getTestnetAddressBalance = (address: string): TotalBalanceResponse | null => {
+  //   const balanceMap = this.store.testnetBalanceMap || {};
+  //   return balanceMap[address.toLowerCase()] || null;
+  // };
 
   getExternalLinkAck = (): boolean => {
     return this.store.externalLinkAck;
@@ -454,21 +587,17 @@ class PreferenceService {
     i18n.changeLanguage(locale);
   };
 
-  updateUseLedgerLive = async (value: boolean) => {
-    this.store.useLedgerLive = value;
-    const keyrings = keyringService.getKeyringsByType(
-      HARDWARE_KEYRING_TYPES.Ledger.type
-    );
-    await Promise.all(
-      keyrings.map(async (keyring) => {
-        await keyring.updateTransportMethod(value);
-        keyring.restart();
-      })
-    );
+  getThemeMode = () => {
+    return this.store.themeMode;
   };
 
-  isUseLedgerLive = () => {
-    return this.store.useLedgerLive;
+  setThemeMode = (themeMode: DARK_MODE_TYPE) => {
+    this.store.themeMode = themeMode;
+  };
+
+  /** @deprecated */
+  isReserveGasOnSendToken = () => {
+    return this.store.reserveGasOnSendToken;
   };
 
   getHighlightedAddresses = () => {
@@ -578,19 +707,18 @@ class PreferenceService {
   getCustomizedToken = () => {
     return this.store.customizedToken || [];
   };
+  hasCustomizedToken = (token: Token) => {
+    return !!this.store.customizedToken?.find(
+      (item) =>
+        isSameAddress(item.address, token.address) && item.chain === token.chain
+    );
+  };
   addCustomizedToken = (token: Token) => {
-    if (
-      !this.store.customizedToken?.find(
-        (item) =>
-          isSameAddress(item.address, token.address) &&
-          item.chain === token.chain
-      )
-    ) {
-      this.store.customizedToken = [
-        ...(this.store.customizedToken || []),
-        token,
-      ];
+    if (this.hasCustomizedToken(token)) {
+      throw new Error('Token already added');
     }
+
+    this.store.customizedToken = [...(this.store.customizedToken || []), token];
   };
   removeCustomizedToken = (token: Token) => {
     this.store.customizedToken = this.store.customizedToken?.filter(
@@ -680,7 +808,8 @@ class PreferenceService {
     this.store.hiddenBalance = value;
   };
   getIsShowTestnet = () => {
-    return this.store.isShowTestnet;
+    // return this.store.isShowTestnet;
+    return true;
   };
   setIsShowTestnet = (value: boolean) => {
     this.store.isShowTestnet = value;
@@ -690,6 +819,51 @@ class PreferenceService {
   };
   resetCurrentCoboSafeAddress = async () => {
     this.setCurrentAccount(this.currentCoboSafeAddress ?? null);
+  };
+
+  resetAddressSortStoreExpiredValue = () => {
+    if (
+      !this.store.addressSortStore.lastCurrentRecordTime ||
+      (this.store.addressSortStore.lastCurrentRecordTime &&
+        dayjs().isAfter(
+          dayjs
+            .unix(this.store.addressSortStore.lastCurrentRecordTime)
+            .add(15, 'minute')
+        ))
+    ) {
+      this.store.addressSortStore = {
+        ...this.store.addressSortStore,
+        search: '',
+        lastScrollOffset: undefined,
+        lastCurrentRecordTime: undefined,
+      };
+    }
+  };
+
+  getAddressSortStoreValue = (key: keyof AddressSortStore) => {
+    if (['search', 'lastScrollOffset'].includes(key)) {
+      this.resetAddressSortStoreExpiredValue();
+    }
+    return this.store.addressSortStore[key];
+  };
+
+  setAddressSortStoreValue = <K extends keyof AddressSortStore>(
+    key: K,
+    value: AddressSortStore[K]
+  ) => {
+    if (['search', 'lastCurrent'].includes(key)) {
+      this.store.addressSortStore = {
+        ...this.store.addressSortStore,
+        lastCurrentRecordTime: dayjs().unix(),
+      };
+    }
+    this.store.addressSortStore = {
+      ...this.store.addressSortStore,
+      [key]: value,
+    };
+  };
+  setIsHideEcologyNoticeDict = (v: Record<string | number, boolean>) => {
+    this.store.isHideEcologyNoticeDict = v;
   };
 }
 

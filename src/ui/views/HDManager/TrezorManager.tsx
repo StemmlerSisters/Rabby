@@ -1,4 +1,3 @@
-import { Modal } from 'antd';
 import React from 'react';
 import {
   AdvancedSettings,
@@ -8,19 +7,30 @@ import {
 import { HDPathType } from './HDPathTypeButton';
 import { MainContainer } from './MainContainer';
 import { HDManagerStateContext, sleep } from './utils';
-import { ReactComponent as SettingSVG } from 'ui/assets/setting-outline.svg';
+import { ReactComponent as RcSettingSVG } from 'ui/assets/setting-outline-cc.svg';
 import { useAsyncRetry } from 'react-use';
 import useModal from 'antd/lib/modal/useModal';
 import * as Sentry from '@sentry/browser';
 import { useTranslation } from 'react-i18next';
+import { Modal as CustomModal } from '@/ui/component';
+import { useWallet } from '@/ui/utils';
+import { HARDWARE_KEYRING_TYPES } from '@/constant';
 
 interface Props {
   HDName?: string;
 }
 
+const TREZOR_TYPE = HARDWARE_KEYRING_TYPES.Trezor.type;
+
 export const TrezorManager: React.FC<Props> = ({ HDName = 'Trezor' }) => {
+  const wallet = useWallet();
   const [loading, setLoading] = React.useState(true);
-  const { getCurrentAccounts } = React.useContext(HDManagerStateContext);
+  const {
+    getCurrentAccounts,
+    createTask,
+    keyringId,
+    setSelectedAccounts,
+  } = React.useContext(HDManagerStateContext);
   const [visibleAdvanced, setVisibleAdvanced] = React.useState(false);
   const [setting, setSetting] = React.useState<SettingData>(
     DEFAULT_SETTING_DATA
@@ -38,9 +48,16 @@ export const TrezorManager: React.FC<Props> = ({ HDName = 'Trezor' }) => {
   const fetchCurrentAccounts = React.useCallback(async () => {
     setLoading(true);
     await getCurrentAccounts();
+
+    const type = await wallet.requestKeyring(
+      TREZOR_TYPE,
+      'getCurrentUsedHDPathType',
+      keyringId
+    );
+
     setSetting({
       ...setting,
-      type: HDPathType.BIP44,
+      type,
     });
     setLoading(false);
   }, []);
@@ -48,11 +65,19 @@ export const TrezorManager: React.FC<Props> = ({ HDName = 'Trezor' }) => {
 
   const onConfirmAdvanced = React.useCallback(async (data: SettingData) => {
     setVisibleAdvanced(false);
-    await fetchCurrentAccounts();
-    setSetting({
-      ...data,
-      type: HDPathType.BIP44,
-    });
+    if (data.type) {
+      await changeHDPathTask(data.type);
+    }
+
+    await createTask(() => getCurrentAccounts());
+    setSelectedAccounts([]);
+    setSetting(data);
+  }, []);
+
+  const changeHDPathTask = React.useCallback(async (type: HDPathType) => {
+    await createTask(() =>
+      wallet.requestKeyring(TREZOR_TYPE, 'setHDPathType', keyringId, type)
+    );
   }, []);
 
   const [modal, contextHolder] = useModal();
@@ -73,8 +98,8 @@ export const TrezorManager: React.FC<Props> = ({ HDName = 'Trezor' }) => {
       sleep(1000).then(fetchCurrentAccountsRetry.retry);
     } else {
       setPreventLoading(true);
-      console.log(errMessage);
-      Sentry.captureException(fetchCurrentAccountsRetry.error);
+      console.error(fetchCurrentAccountsRetry.error);
+      Sentry.captureException(`TrezorManager: ${errMessage}`);
 
       modal.error({
         content: t('page.newAddress.hd.trezor.message.disconnected', [HDName]),
@@ -89,11 +114,13 @@ export const TrezorManager: React.FC<Props> = ({ HDName = 'Trezor' }) => {
 
   return (
     <>
-      <div className="setting" onClick={openAdvanced}>
-        <SettingSVG className="icon" />
-        <span className="title">
-          {t('page.newAddress.hd.advancedSettings')}
-        </span>
+      <div className="toolbar">
+        <div className="toolbar-item" onClick={openAdvanced}>
+          <RcSettingSVG className="icon text-r-neutral-title1" />
+          <span className="title">
+            {t('page.newAddress.hd.advancedSettings')}
+          </span>
+        </div>
       </div>
 
       <MainContainer
@@ -104,9 +131,9 @@ export const TrezorManager: React.FC<Props> = ({ HDName = 'Trezor' }) => {
         preventLoading={preventLoading}
       />
 
-      <Modal
+      <CustomModal
         destroyOnClose
-        className="AdvancedModal"
+        className="AdvancedModal modal-support-darkmode"
         title={t('page.newAddress.hd.customAddressHdPath')}
         visible={visibleAdvanced}
         centered
@@ -118,7 +145,7 @@ export const TrezorManager: React.FC<Props> = ({ HDName = 'Trezor' }) => {
           onConfirm={onConfirmAdvanced}
           initSettingData={setting}
         />
-      </Modal>
+      </CustomModal>
       {contextHolder}
     </>
   );

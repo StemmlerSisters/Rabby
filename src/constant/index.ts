@@ -1,77 +1,210 @@
+import {
+  ensureChainHashValid,
+  ensureChainListValid,
+  getChainList,
+  getMainnetChainList,
+} from '@/utils/chain';
 import { CHAINS, CHAINS_ENUM, Chain } from '@debank/common';
 import { Level } from '@rabby-wallet/rabby-security-engine/dist/rules';
-import IconAmber from 'ui/assets/walletlogo/amber.svg';
-import LogoAmber from 'ui/assets/walletlogo/amber.svg';
+import { DEX_ENUM, DEX_SUPPORT_CHAINS } from '@rabby-wallet/rabby-swap';
+import IconClosed, {
+  ReactComponent as RcIconClosed,
+} from 'ui/assets/sign/security-engine/closed.svg';
+import IconDanger, {
+  ReactComponent as RcIconDanger,
+} from 'ui/assets/sign/security-engine/danger.svg';
+import IconError, {
+  ReactComponent as RcIconError,
+} from 'ui/assets/sign/security-engine/error.svg';
+import IconForbidden, {
+  ReactComponent as RcIconForbidden,
+} from 'ui/assets/sign/security-engine/forbidden.svg';
+import IconProceed, {
+  ReactComponent as RcIconProceed,
+} from 'ui/assets/sign/security-engine/processed.svg';
+import IconSafe, {
+  ReactComponent as RcIconSafe,
+} from 'ui/assets/sign/security-engine/safe.svg';
+import IconWarning, {
+  ReactComponent as RcIconWarning,
+} from 'ui/assets/sign/security-engine/warning.svg';
+import LogoCoboArgus, {
+  ReactComponent as RcLogoCoboArgus,
+} from 'ui/assets/walletlogo/CoboArgus.svg';
+import IconMnemonicWhite, {
+  ReactComponent as RcIconMnemonicWhite,
+} from 'ui/assets/walletlogo/IconMnemonic-white.svg';
+import IconWatchWhite, {
+  ReactComponent as RcIconWatchWhite,
+} from 'ui/assets/walletlogo/IconWatch-white.svg';
+import LogoAirGap, {
+  ReactComponent as RcLogoAirGap,
+} from 'ui/assets/walletlogo/airgap.svg';
+import {
+  default as IconAmber,
+  default as LogoAmber,
+  ReactComponent as RcIconAmber,
+  ReactComponent as RcLogoAmber,
+} from 'ui/assets/walletlogo/amber.svg';
 import {
   default as IconBitBox02,
   default as IconBitBox02WithBorder,
+  ReactComponent as RcIconBitBox02,
+  ReactComponent as RcIconBitBox02WithBorder,
 } from 'ui/assets/walletlogo/bitbox.svg';
-import IconCobo from 'ui/assets/walletlogo/cobo.svg';
-import LogoCobo from 'ui/assets/walletlogo/cobo.svg';
-import IconFireblocksWithBorder from 'ui/assets/walletlogo/fireblocks.svg';
-import IconFireblocks from 'ui/assets/walletlogo/fireblocks.svg';
-import IconGnosis from 'ui/assets/walletlogo/safe.svg';
-import IconGridPlus from 'ui/assets/walletlogo/gridplus.svg';
-import IconImtoken from 'ui/assets/walletlogo/imtoken.svg';
-import LogoImtoken from 'ui/assets/walletlogo/imtoken.svg';
-import IconJade from 'ui/assets/walletlogo/jade.svg';
-import LogoJade from 'ui/assets/walletlogo/jade.svg';
-import LogoKeystone from 'ui/assets/walletlogo/keystone.svg';
-import LogoAirGap from 'ui/assets/walletlogo/airgap.svg';
-import LogoLedgerDark from 'ui/assets/walletlogo/ledger.svg';
-import LogoLedgerWhite from 'ui/assets/walletlogo/ledger.svg';
-import IconMath from 'ui/assets/walletlogo/math.svg';
-import LogoMath from 'ui/assets/walletlogo/math.svg';
-import IconMetaMask from 'ui/assets/walletlogo/metamask.svg';
-import IconMnemonicInk from 'ui/assets/walletlogo/mnemonic-ink.svg';
-import IconMnemonicWhite from 'ui/assets/walletlogo/IconMnemonic-white.svg';
-import LogoMnemonic from 'ui/assets/walletlogo/mnemoniclogo.svg';
-import IconOnekey from 'ui/assets/walletlogo/onekey.svg';
-import IconOneKey18 from 'ui/assets/walletlogo/onekey.svg';
-import LogoOnekey from 'ui/assets/walletlogo/onekey.svg';
-import IconPrivateKeyWhite from 'ui/assets/walletlogo/private-key-white.svg';
-import IconPrivateKeyInk from 'ui/assets/walletlogo/privatekey-ink.svg';
-import LogoPrivateKey from 'ui/assets/walletlogo/privatekeylogo.svg';
-import LogoTp from 'ui/assets/walletlogo/tp.svg';
-import IconTokenpocket from 'ui/assets/walletlogo/tp.svg';
-import IconTrezor from 'ui/assets/walletlogo/trezor.svg';
-import IconTrezor24Border from 'ui/assets/walletlogo/trezor.svg';
-import IconTrezor24 from 'ui/assets/walletlogo/trezor.svg';
-import LogoTrezor from 'ui/assets/walletlogo/trezor.svg';
-import LogoTrust from 'ui/assets/walletlogo/trust.svg';
-import IconTrust from 'ui/assets/walletlogo/trust.svg';
-import LogoCoolWallet from 'ui/assets/walletlogo/coolwallet.svg';
-import IconWatchPurple from 'ui/assets/walletlogo/watch-purple.svg';
-import IconWatchWhite from 'ui/assets/walletlogo/IconWatch-white.svg';
-import LogoDefiant from 'ui/assets/walletlogo/defiant.svg';
-import LogoDefiantWhite from 'ui/assets/walletlogo/defiant.svg';
-import IconSafe from 'ui/assets/sign/security-engine/safe.svg';
-import IconDanger from 'ui/assets/sign/security-engine/danger.svg';
-import IconForbidden from 'ui/assets/sign/security-engine/forbidden.svg';
-import IconWarning from 'ui/assets/sign/security-engine/warning.svg';
-import IconError from 'ui/assets/sign/security-engine/error.svg';
-import IconProceed from 'ui/assets/sign/security-engine/processed.svg';
-import IconClosed from 'ui/assets/sign/security-engine/closed.svg';
-import LogoWalletConnect from 'ui/assets/walletlogo/walletconnect.svg';
-import LogoWalletConnectWhite from 'ui/assets/walletlogo/walletconnect.svg';
-import LogoBitkeep from 'ui/assets/walletlogo/bitkeep.svg';
-import LogoRainbow from 'ui/assets/walletlogo/rainbow.svg';
-import LogoZerion from 'ui/assets/walletlogo/zerion.svg';
-import LogoCoboArgus from 'ui/assets/walletlogo/CoboArgus.svg';
-import { ensureChainHashValid, ensureChainListValid } from '@/utils/chain';
-import { DEX_ENUM, DEX_SUPPORT_CHAINS } from '@rabby-wallet/rabby-swap';
+import LogoBitkeep, {
+  ReactComponent as RcLogoBitkeep,
+} from 'ui/assets/walletlogo/bitkeep.svg';
+import {
+  default as IconCobo,
+  default as LogoCobo,
+  ReactComponent as RcIconCobo,
+  ReactComponent as RcLogoCobo,
+} from 'ui/assets/walletlogo/cobo.svg';
+import IconCoinbase, {
+  ReactComponent as RCIconCoinbase,
+} from 'ui/assets/walletlogo/coinbase.svg';
+import LogoCoolWallet, {
+  ReactComponent as RcLogoCoolWallet,
+} from 'ui/assets/walletlogo/coolwallet.svg';
+import {
+  default as LogoDefiant,
+  default as LogoDefiantWhite,
+  ReactComponent as RcLogoDefiant,
+  ReactComponent as RcLogoDefiantWhite,
+} from 'ui/assets/walletlogo/defiant.svg';
+import {
+  default as IconFireblocks,
+  default as IconFireblocksWithBorder,
+  ReactComponent as RcIconFireblocks,
+  ReactComponent as RcIconFireblocksWithBorder,
+} from 'ui/assets/walletlogo/fireblocks.svg';
+import IconGridPlus, {
+  ReactComponent as RcIconGridPlus,
+} from 'ui/assets/walletlogo/gridplus.svg';
+import LogoImtokenOffline, {
+  ReactComponent as RcLogoImtokenOffline,
+} from 'ui/assets/walletlogo/imTokenOffline.svg';
+import IconImKey, {
+  ReactComponent as RCIconImKey,
+} from 'ui/assets/walletlogo/imkey.svg';
+import {
+  default as IconImtoken,
+  default as LogoImtoken,
+  ReactComponent as RcIconImtoken,
+  ReactComponent as RcLogoImtoken,
+} from 'ui/assets/walletlogo/imtoken.svg';
+import {
+  default as IconJade,
+  default as LogoJade,
+  ReactComponent as RcIconJade,
+  ReactComponent as RcLogoJade,
+} from 'ui/assets/walletlogo/jade.svg';
+import LogoKeystone, {
+  ReactComponent as RcLogoKeystone,
+} from 'ui/assets/walletlogo/keystone.svg';
+import {
+  default as LogoLedgerDark,
+  default as LogoLedgerWhite,
+  ReactComponent as RcLogoLedgerDark,
+  ReactComponent as RcLogoLedgerWhite,
+} from 'ui/assets/walletlogo/ledger.svg';
+import LogoLedgerDisable, {
+  ReactComponent as RcLogoLedgerDisable,
+} from 'ui/assets/walletlogo/ledgerDisable.svg';
+import {
+  default as IconMath,
+  default as LogoMath,
+  ReactComponent as RcIconMath,
+  ReactComponent as RcLogoMath,
+} from 'ui/assets/walletlogo/math.svg';
+import IconMetaMask, {
+  ReactComponent as RcIconMetaMask,
+} from 'ui/assets/walletlogo/metamask.svg';
+import IconMnemonicInk, {
+  ReactComponent as RcIconMnemonicInk,
+} from 'ui/assets/walletlogo/mnemonic-ink.svg';
+import LogoMPCVault, {
+  ReactComponent as RcLogoMPCVault,
+} from 'ui/assets/walletlogo/mpcvault.svg';
+import IconNgrave, {
+  ReactComponent as RCIconNgrave,
+} from 'ui/assets/walletlogo/ngrave.svg';
+import {
+  default as IconOneKey18,
+  default as IconOnekey,
+  default as LogoOnekey,
+  ReactComponent as RcIconOneKey18,
+  ReactComponent as RcIconOnekey,
+  ReactComponent as RcLogoOnekey,
+} from 'ui/assets/walletlogo/onekey.svg';
+import IconPrivateKeyWhite, {
+  ReactComponent as RcIconPrivateKeyWhite,
+} from 'ui/assets/walletlogo/private-key-white.svg';
+import IconPrivateKeyInk, {
+  ReactComponent as RcIconPrivateKeyInk,
+} from 'ui/assets/walletlogo/privatekey-ink.svg';
+import LogoPrivateKey, {
+  ReactComponent as RcLogoPrivateKey,
+} from 'ui/assets/walletlogo/privatekeylogo.svg';
+import LogoRainbow, {
+  ReactComponent as RcLogoRainbow,
+} from 'ui/assets/walletlogo/rainbow.svg';
+import IconGnosis, {
+  ReactComponent as RcIconGnosis,
+} from 'ui/assets/walletlogo/safe.svg';
+import {
+  default as IconTokenpocket,
+  default as LogoTp,
+  ReactComponent as RcIconTokenpocket,
+  ReactComponent as RcLogoTp,
+} from 'ui/assets/walletlogo/tp.svg';
+import {
+  default as IconTrezor,
+  default as IconTrezor24,
+  default as IconTrezor24Border,
+  default as LogoTrezor,
+  ReactComponent as RcIconTrezor,
+  ReactComponent as RcIconTrezor24,
+  ReactComponent as RcIconTrezor24Border,
+  ReactComponent as RcLogoTrezor,
+} from 'ui/assets/walletlogo/trezor.svg';
+import {
+  default as IconTrust,
+  default as LogoTrust,
+  ReactComponent as RcIconTrust,
+  ReactComponent as RcLogoTrust,
+} from 'ui/assets/walletlogo/trust.svg';
+import IconUtila, {
+  ReactComponent as RCIconUtila,
+} from 'ui/assets/walletlogo/utila.svg';
+import {
+  default as LogoWalletConnect,
+  default as LogoWalletConnectWhite,
+  ReactComponent as RcLogoWalletConnect,
+  ReactComponent as RcLogoWalletConnectWhite,
+} from 'ui/assets/walletlogo/walletconnect.svg';
+import IconWatchPurple, {
+  ReactComponent as RcIconWatchPurple,
+} from 'ui/assets/walletlogo/watch-purple.svg';
+import LogoZerion, {
+  ReactComponent as RcLogoZerion,
+} from 'ui/assets/walletlogo/zerion.svg';
+import browser from 'webextension-polyfill';
 
-import LogoParaswap from 'ui/assets/swap/paraswap.png';
 import Logo0X from 'ui/assets/swap/0xswap.png';
 import Logo1inch from 'ui/assets/swap/1inch.png';
+import LogoOdos from 'ui/assets/swap/odos.png';
+import LogoParaswap from 'ui/assets/swap/paraswap.png';
+import LogoMagpie from 'ui/assets/swap/magpie.jpg';
 
-import LogoOpenOcean from 'ui/assets/swap/openocean.png';
+import RabbyChainLogo from '@/ui/assets/rabby-chain-logo.png';
 import LogoBinance from 'ui/assets/swap/binance.png';
 import LogoCoinbase from 'ui/assets/swap/coinbase.png';
-import LogoOkx from 'ui/assets/swap/okx.png';
-import LogoTokenDefault from 'ui/assets/token-default.svg';
-import LogoUniswap from 'ui/assets/swap/uniswap.svg';
 import LogoKyberSwap from 'ui/assets/swap/kyberswap.png';
+import LogoOkx from 'ui/assets/swap/okx.png';
+import LogoOpenOcean from 'ui/assets/swap/openocean.png';
+import LogoTokenDefault from 'ui/assets/token-default.svg';
 
 export { default as LANGS } from '../../_raw/locales/index.json';
 
@@ -82,10 +215,22 @@ interface PortfolioChain extends Chain {
 }
 
 export const CHAIN_ID_LIST = new Map<string, PortfolioChain>(
-  Object.values(CHAINS).map((chain) => {
+  getChainList('mainnet').map((chain) => {
     return [chain.serverId, { ...chain, isSupportHistory: false }];
   })
 );
+
+export const syncChainIdList = () => {
+  const chainList = getChainList('mainnet');
+  for (const chain of chainList) {
+    if (!CHAIN_ID_LIST.has(chain.serverId)) {
+      CHAIN_ID_LIST.set(chain.serverId, {
+        ...chain,
+        isSupportHistory: false,
+      });
+    }
+  }
+};
 
 export const KEYRING_TYPE = {
   HdKeyring: 'HD Key Tree',
@@ -95,7 +240,8 @@ export const KEYRING_TYPE = {
   WalletConnectKeyring: 'WalletConnect',
   GnosisKeyring: 'Gnosis',
   CoboArgusKeyring: 'CoboArgus',
-};
+  CoinbaseKeyring: 'Coinbase',
+} as const;
 
 export const KEYRING_CLASS = {
   PRIVATE_KEY: 'Simple Key Pair',
@@ -107,12 +253,20 @@ export const KEYRING_CLASS = {
     ONEKEY: 'Onekey Hardware',
     GRIDPLUS: 'GridPlus Hardware',
     KEYSTONE: 'QR Hardware Wallet Device',
+    IMKEY: 'imKey Hardware',
   },
   WATCH: 'Watch Address',
   WALLETCONNECT: 'WalletConnect',
   GNOSIS: 'Gnosis',
   CoboArgus: 'CoboArgus',
-};
+  Coinbase: 'Coinbase',
+} as const;
+
+export const CORE_KEYRING_TYPES = [
+  KEYRING_CLASS.MNEMONIC,
+  KEYRING_CLASS.PRIVATE_KEY,
+  ...Object.values(KEYRING_CLASS.HARDWARE),
+];
 
 export const KEYRING_WITH_INDEX = [
   KEYRING_CLASS.HARDWARE.LEDGER,
@@ -126,6 +280,8 @@ export const SUPPORT_1559_KEYRING_TYPE = [
   KEYRING_CLASS.MNEMONIC,
   KEYRING_CLASS.HARDWARE.KEYSTONE,
   KEYRING_CLASS.HARDWARE.TREZOR,
+  KEYRING_CLASS.HARDWARE.ONEKEY,
+  KEYRING_CLASS.HARDWARE.BITBOX02,
 ];
 
 export const KEYRING_TYPE_TEXT = {
@@ -139,6 +295,7 @@ export const KEYRING_TYPE_TEXT = {
   [KEYRING_CLASS.HARDWARE.GRIDPLUS]: 'Imported by GridPlus',
   [KEYRING_CLASS.GNOSIS]: 'Imported by Safe',
   [KEYRING_CLASS.HARDWARE.KEYSTONE]: 'Imported by QRCode Base',
+  [KEYRING_CLASS.HARDWARE.IMKEY]: 'Imported by imKey',
 };
 
 export const HARDWARE_KEYRING_TYPES = {
@@ -166,7 +323,11 @@ export const HARDWARE_KEYRING_TYPES = {
     type: 'QR Hardware Wallet Device',
     brandName: 'Keystone',
   },
-};
+  ImKey: {
+    type: 'imKey Hardware',
+    brandName: 'imKey',
+  },
+} as const;
 
 export enum TX_TYPE_ENUM {
   SEND = 1,
@@ -179,6 +340,13 @@ export enum TX_TYPE_ENUM {
 export const IS_CHROME = /Chrome\//i.test(global.navigator?.userAgent);
 
 export const IS_FIREFOX = /Firefox\//i.test(global.navigator?.userAgent);
+
+export let IS_VIVALDI = false;
+browser.tabs.onCreated.addListener((tab) => {
+  if (tab && 'vivExtData' in tab) {
+    IS_VIVALDI = true;
+  }
+});
 
 export const IS_LINUX = /linux/i.test(global.navigator?.userAgent);
 
@@ -255,6 +423,7 @@ export const SAFE_RPC_METHODS = [
   'eth_syncing',
   'eth_uninstallFilter',
   'wallet_requestPermissions',
+  'wallet_revokePermissions',
   'wallet_getPermissions',
   'net_version',
 ];
@@ -275,6 +444,8 @@ export enum BRAND_WALLET_CONNECT_TYPE {
   GridPlusConnect = 'GridPlusConnect',
   QRCodeBase = 'QR Hardware Wallet Device',
   CoboArgusConnect = 'CoboArgusConnect',
+  CoinbaseConnect = 'CoinbaseConnect',
+  ImKeyConnect = 'ImKeyConnect',
 }
 
 export const WALLETCONNECT_STATUS_MAP = {
@@ -292,7 +463,7 @@ export const INTERNAL_REQUEST_ORIGIN = location.origin;
 export const INTERNAL_REQUEST_SESSION = {
   name: 'Rabby',
   origin: INTERNAL_REQUEST_ORIGIN,
-  icon: './images/rabby-site-logo.png',
+  icon: RabbyChainLogo,
 };
 
 export const INITIAL_OPENAPI_URL = 'https://api.rabby.io';
@@ -313,6 +484,7 @@ export const EVENTS = {
     INIT: 'WALLETCONNECT_INIT',
     INITED: 'WALLETCONNECT_INITED',
     TRANSPORT_ERROR: 'TRANSPORT_ERROR',
+    SCAN_ACCOUNT: 'SCAN_ACCOUNT',
   },
   GNOSIS: {
     TX_BUILT: 'TransactionBuilt',
@@ -329,6 +501,17 @@ export const EVENTS = {
     REJECTED: 'COMMON_HARDWARE_REJECTED',
   },
   LOCK_WALLET: 'LOCK_WALLET',
+  RELOAD_TX: 'RELOAD_TX',
+  SIGN_BEGIN: 'SIGN_BEGIN',
+  SIGN_WAITING_AMOUNTED: 'SIGN_WAITING_AMOUNTED',
+  // FORCE_EXPIRE_ADDRESS_BALANCE: 'FORCE_EXPIRE_ADDRESS_BALANCE',
+  GAS_ACCOUNT: {
+    LOG_OUT: 'LOG_OUT',
+  },
+};
+
+export const EVENTS_IN_BG = {
+  ON_TX_COMPLETED: 'ON_TX_COMPLETED',
 };
 
 export enum WALLET_BRAND_TYPES {
@@ -352,11 +535,17 @@ export enum WALLET_BRAND_TYPES {
   DEFIANT = 'Defiant',
   WALLETCONNECT = 'WALLETCONNECT',
   AIRGAP = 'AirGap',
+  IMTOKENOFFLINE = 'imTokenOffline',
   Rainbow = 'Rainbow',
-  Bitkeep = 'Bitkeep',
+  Bitkeep = 'Bitget',
   // Uniswap = 'Uniswap',
   Zerion = 'Zerion',
   CoboArgus = 'CoboArgus',
+  MPCVault = 'MPCVault',
+  Coinbase = 'Coinbase',
+  IMKEY = 'IMKEY',
+  NGRAVEZERO = 'NGRAVE ZERO',
+  Utila = 'Utila',
 }
 
 export enum WALLET_BRAND_CATEGORY {
@@ -365,26 +554,44 @@ export enum WALLET_BRAND_CATEGORY {
   INSTITUTIONAL = 'institutional',
 }
 
+export type ThemeIconType = string | React.FC<React.SVGProps<SVGSVGElement>>;
+
 export type IWalletBrandContent = {
   id: number;
   name: string;
   brand: WALLET_BRAND_TYPES;
   icon: string;
+  lightIcon: string;
+  // Icon showed out of collapse
+  leftIcon?: string;
   image: string;
+  rcSvg: Exclude<ThemeIconType, string>;
+  /**
+   * @description some brand's logo has no dark mode svg because it's colorful,
+   * for those brand, we use lightIcon as dark mode svg. When maybeSvg provided
+   * for those brand, we set maybeSvg as image string and `ThemeIcon` would rendered
+   * as <img />.
+   */
+  maybeSvg?: ThemeIconType;
   connectType: BRAND_WALLET_CONNECT_TYPE;
   category: WALLET_BRAND_CATEGORY;
   hidden?: boolean;
+  preventClick?: boolean;
+  tipI18nKey?: string;
 };
 
 export const WALLET_BRAND_CONTENT: {
-  [K in WALLET_BRAND_TYPES]: IWalletBrandContent;
+  [K in string]: IWalletBrandContent;
 } = {
   [WALLET_BRAND_TYPES.AMBER]: {
     id: 0,
     name: 'Amber',
     brand: WALLET_BRAND_TYPES.AMBER,
     icon: IconAmber,
+    lightIcon: IconAmber,
     image: LogoAmber,
+    rcSvg: RcLogoAmber,
+    maybeSvg: LogoAmber,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.INSTITUTIONAL,
   },
@@ -393,7 +600,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'BitBox02',
     brand: WALLET_BRAND_TYPES.BITBOX02,
     icon: IconBitBox02,
+    lightIcon: IconBitBox02,
     image: IconBitBox02WithBorder,
+    rcSvg: RcIconBitBox02WithBorder,
+    maybeSvg: IconBitBox02WithBorder,
     connectType: BRAND_WALLET_CONNECT_TYPE.BitBox02Connect,
     category: WALLET_BRAND_CATEGORY.HARDWARE,
   },
@@ -402,7 +612,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Cobo Wallet',
     brand: WALLET_BRAND_TYPES.COBO,
     icon: IconCobo,
+    lightIcon: IconCobo,
     image: LogoCobo,
+    rcSvg: RcLogoCobo,
+    maybeSvg: LogoCobo,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.INSTITUTIONAL,
     hidden: true,
@@ -412,7 +625,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'CoolWallet',
     brand: WALLET_BRAND_TYPES.COOLWALLET,
     icon: LogoCoolWallet,
+    lightIcon: LogoCoolWallet,
     image: LogoCoolWallet,
+    rcSvg: RcLogoCoolWallet,
+    maybeSvg: LogoCoolWallet,
     connectType: BRAND_WALLET_CONNECT_TYPE.QRCodeBase,
     category: WALLET_BRAND_CATEGORY.HARDWARE,
   },
@@ -421,7 +637,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Defiant',
     brand: WALLET_BRAND_TYPES.DEFIANT,
     icon: LogoDefiant,
+    lightIcon: LogoDefiant,
     image: LogoDefiantWhite,
+    rcSvg: RcLogoDefiantWhite,
+    maybeSvg: LogoDefiantWhite,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.MOBILE,
     hidden: true,
@@ -431,16 +650,22 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Wallet Connect',
     brand: WALLET_BRAND_TYPES.WALLETCONNECT,
     icon: LogoWalletConnect,
+    lightIcon: LogoWalletConnect,
     image: LogoWalletConnectWhite,
+    rcSvg: RcLogoWalletConnectWhite,
+    maybeSvg: LogoWalletConnectWhite,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.MOBILE,
   },
   [WALLET_BRAND_TYPES.FIREBLOCKS]: {
     id: 11,
-    name: 'FireBlocks',
+    name: 'Fireblocks',
     brand: WALLET_BRAND_TYPES.FIREBLOCKS,
     icon: IconFireblocks,
+    lightIcon: IconFireblocks,
     image: IconFireblocksWithBorder,
+    rcSvg: RcIconFireblocksWithBorder,
+    maybeSvg: IconFireblocksWithBorder,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.INSTITUTIONAL,
   },
@@ -449,7 +674,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Safe',
     brand: WALLET_BRAND_TYPES.GNOSIS,
     icon: IconGnosis,
+    lightIcon: IconGnosis,
     image: IconGnosis,
+    rcSvg: RcIconGnosis,
+    maybeSvg: IconGnosis,
     connectType: BRAND_WALLET_CONNECT_TYPE.GnosisConnect,
     category: WALLET_BRAND_CATEGORY.INSTITUTIONAL,
   },
@@ -458,7 +686,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'GridPlus',
     brand: WALLET_BRAND_TYPES.GRIDPLUS,
     icon: IconGridPlus,
+    lightIcon: IconGridPlus,
     image: IconGridPlus,
+    rcSvg: RcIconGridPlus,
+    maybeSvg: IconGridPlus,
     connectType: BRAND_WALLET_CONNECT_TYPE.GridPlusConnect,
     category: WALLET_BRAND_CATEGORY.HARDWARE,
   },
@@ -467,7 +698,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'imToken',
     brand: WALLET_BRAND_TYPES.IMTOKEN,
     icon: IconImtoken,
+    lightIcon: IconImtoken,
     image: LogoImtoken,
+    rcSvg: RcLogoImtoken,
+    maybeSvg: LogoImtoken,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.MOBILE,
   },
@@ -476,7 +710,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Jade Wallet',
     brand: WALLET_BRAND_TYPES.JADE,
     icon: IconJade,
+    lightIcon: IconJade,
     image: LogoJade,
+    rcSvg: RcLogoJade,
+    maybeSvg: LogoJade,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.INSTITUTIONAL,
   },
@@ -485,7 +722,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Keystone',
     brand: WALLET_BRAND_TYPES.KEYSTONE,
     icon: LogoKeystone,
+    lightIcon: LogoKeystone,
     image: LogoKeystone,
+    rcSvg: RcLogoKeystone,
+    maybeSvg: LogoKeystone,
     connectType: BRAND_WALLET_CONNECT_TYPE.QRCodeBase,
     category: WALLET_BRAND_CATEGORY.HARDWARE,
   },
@@ -494,7 +734,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'AirGap Vault',
     brand: WALLET_BRAND_TYPES.AIRGAP,
     icon: LogoAirGap,
+    lightIcon: LogoAirGap,
     image: LogoAirGap,
+    rcSvg: RcLogoAirGap,
+    maybeSvg: LogoAirGap,
     connectType: BRAND_WALLET_CONNECT_TYPE.QRCodeBase,
     category: WALLET_BRAND_CATEGORY.HARDWARE,
   },
@@ -503,16 +746,25 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Ledger',
     brand: WALLET_BRAND_TYPES.LEDGER,
     icon: LogoLedgerWhite,
-    image: LogoLedgerDark,
+    lightIcon: LogoLedgerWhite,
+    leftIcon: LogoLedgerDark,
+    image: IS_FIREFOX ? LogoLedgerDisable : LogoLedgerDark,
+    rcSvg: IS_FIREFOX ? RcLogoLedgerDisable : RcLogoLedgerDark,
+    maybeSvg: LogoLedgerDark,
     connectType: BRAND_WALLET_CONNECT_TYPE.LedgerConnect,
     category: WALLET_BRAND_CATEGORY.HARDWARE,
+    preventClick: IS_FIREFOX,
+    tipI18nKey: IS_FIREFOX ? 'page.newAddress.firefoxLedgerDisableTips' : '',
   },
   [WALLET_BRAND_TYPES.MATHWALLET]: {
     id: 5,
     name: 'Math Wallet',
     brand: WALLET_BRAND_TYPES.MATHWALLET,
     icon: IconMath,
+    lightIcon: IconMath,
     image: LogoMath,
+    rcSvg: RcLogoMath,
+    maybeSvg: LogoMath,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.MOBILE,
   },
@@ -521,7 +773,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'MetaMask Mobile',
     brand: WALLET_BRAND_TYPES.METAMASK,
     icon: IconMetaMask,
+    lightIcon: IconMetaMask,
     image: IconMetaMask,
+    rcSvg: RcIconMetaMask,
+    maybeSvg: RcIconMetaMask,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.MOBILE,
   },
@@ -530,7 +785,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'OneKey',
     brand: WALLET_BRAND_TYPES.ONEKEY,
     icon: IconOnekey,
+    lightIcon: IconOnekey,
     image: LogoOnekey,
+    rcSvg: RcLogoOnekey,
+    maybeSvg: LogoOnekey,
     connectType: BRAND_WALLET_CONNECT_TYPE.OneKeyConnect,
     category: WALLET_BRAND_CATEGORY.HARDWARE,
   },
@@ -539,7 +797,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'TokenPocket',
     brand: WALLET_BRAND_TYPES.TP,
     icon: IconTokenpocket,
+    lightIcon: IconTokenpocket,
     image: LogoTp,
+    rcSvg: RcLogoTp,
+    maybeSvg: LogoTp,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.MOBILE,
   },
@@ -548,7 +809,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Trezor',
     brand: WALLET_BRAND_TYPES.TREZOR,
     icon: IconTrezor,
+    lightIcon: IconTrezor,
     image: LogoTrezor,
+    rcSvg: RcLogoTrezor,
+    maybeSvg: LogoTrezor,
     connectType: BRAND_WALLET_CONNECT_TYPE.TrezorConnect,
     category: WALLET_BRAND_CATEGORY.HARDWARE,
   },
@@ -557,7 +821,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Trust Wallet',
     brand: WALLET_BRAND_TYPES.TRUSTWALLET,
     icon: IconTrust,
+    lightIcon: IconTrust,
     image: LogoTrust,
+    rcSvg: RcLogoTrust,
+    maybeSvg: LogoTrust,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.MOBILE,
   },
@@ -566,16 +833,22 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Rainbow',
     brand: WALLET_BRAND_TYPES.Rainbow,
     icon: LogoRainbow,
+    lightIcon: LogoRainbow,
     image: LogoRainbow,
+    rcSvg: RcLogoRainbow,
+    maybeSvg: LogoRainbow,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.MOBILE,
   },
   [WALLET_BRAND_TYPES.Bitkeep]: {
     id: 22,
-    name: 'Bitkeep',
+    name: 'Bitget Wallet',
     brand: WALLET_BRAND_TYPES.Bitkeep,
     icon: LogoBitkeep,
+    lightIcon: LogoBitkeep,
     image: LogoBitkeep,
+    rcSvg: RcLogoBitkeep,
+    maybeSvg: LogoBitkeep,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.MOBILE,
   },
@@ -584,7 +857,10 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Zerion Wallet',
     brand: WALLET_BRAND_TYPES.Zerion,
     icon: LogoZerion,
+    lightIcon: LogoZerion,
     image: LogoZerion,
+    rcSvg: RcLogoZerion,
+    maybeSvg: LogoZerion,
     connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
     category: WALLET_BRAND_CATEGORY.MOBILE,
   },
@@ -602,9 +878,82 @@ export const WALLET_BRAND_CONTENT: {
     name: 'Cobo Argus',
     brand: WALLET_BRAND_TYPES.CoboArgus,
     icon: LogoCoboArgus,
+    lightIcon: LogoCoboArgus,
     image: LogoCoboArgus,
+    rcSvg: RcLogoCoboArgus,
+    maybeSvg: LogoCoboArgus,
     connectType: BRAND_WALLET_CONNECT_TYPE.CoboArgusConnect,
     category: WALLET_BRAND_CATEGORY.INSTITUTIONAL,
+  },
+  [WALLET_BRAND_TYPES.MPCVault]: {
+    id: 26,
+    name: 'MPCVault',
+    brand: WALLET_BRAND_TYPES.MPCVault,
+    icon: LogoMPCVault,
+    lightIcon: LogoMPCVault,
+    image: LogoMPCVault,
+    rcSvg: RcLogoMPCVault,
+    maybeSvg: LogoMPCVault,
+    connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
+    category: WALLET_BRAND_CATEGORY.INSTITUTIONAL,
+  },
+  [WALLET_BRAND_TYPES.IMTOKENOFFLINE]: {
+    id: 27,
+    name: 'imToken',
+    brand: WALLET_BRAND_TYPES.IMTOKENOFFLINE,
+    icon: LogoImtokenOffline,
+    lightIcon: LogoImtokenOffline,
+    image: LogoImtokenOffline,
+    rcSvg: RcLogoImtokenOffline,
+    maybeSvg: LogoImtokenOffline,
+    connectType: BRAND_WALLET_CONNECT_TYPE.QRCodeBase,
+    category: WALLET_BRAND_CATEGORY.HARDWARE,
+  },
+  [WALLET_BRAND_TYPES.Coinbase]: {
+    id: 28,
+    name: 'Coinbase',
+    brand: WALLET_BRAND_TYPES.Coinbase,
+    lightIcon: IconCoinbase,
+    icon: IconCoinbase,
+    image: IconCoinbase,
+    rcSvg: RCIconCoinbase,
+    connectType: BRAND_WALLET_CONNECT_TYPE.CoinbaseConnect,
+    category: WALLET_BRAND_CATEGORY.MOBILE,
+  },
+  [WALLET_BRAND_TYPES.IMKEY]: {
+    id: 29,
+    name: 'imKey',
+    brand: WALLET_BRAND_TYPES.IMKEY,
+    icon: IconImKey,
+    lightIcon: IconImKey,
+    image: IconImKey,
+    rcSvg: RCIconImKey,
+    maybeSvg: IconImKey,
+    connectType: BRAND_WALLET_CONNECT_TYPE.ImKeyConnect,
+    category: WALLET_BRAND_CATEGORY.HARDWARE,
+  },
+  [WALLET_BRAND_TYPES.Utila]: {
+    id: 30,
+    name: 'Utila',
+    brand: WALLET_BRAND_TYPES.Utila,
+    icon: IconUtila,
+    lightIcon: IconUtila,
+    image: IconUtila,
+    rcSvg: RCIconUtila,
+    connectType: BRAND_WALLET_CONNECT_TYPE.WalletConnect,
+    category: WALLET_BRAND_CATEGORY.INSTITUTIONAL,
+  },
+  [WALLET_BRAND_TYPES.NGRAVEZERO]: {
+    id: 31,
+    name: 'NGRAVE ZERO',
+    brand: WALLET_BRAND_TYPES.NGRAVEZERO,
+    icon: IconNgrave,
+    lightIcon: IconNgrave,
+    image: IconNgrave,
+    rcSvg: RCIconNgrave,
+    maybeSvg: IconNgrave,
+    connectType: BRAND_WALLET_CONNECT_TYPE.QRCodeBase,
+    category: WALLET_BRAND_CATEGORY.HARDWARE,
   },
 };
 
@@ -617,9 +966,23 @@ export const KEYRING_ICONS = {
   [HARDWARE_KEYRING_TYPES.Onekey.type]: LogoOnekey,
   [HARDWARE_KEYRING_TYPES.Trezor.type]: IconTrezor24,
   [HARDWARE_KEYRING_TYPES.GridPlus.type]: IconGridPlus,
-};
+  [HARDWARE_KEYRING_TYPES.ImKey.type]: IconImKey,
+  // [HARDWARE_KEYRING_TYPES.Keystone.type]: LogoKeystone,
+} as const;
 
-export const KEYRING_ICONS_WHITE = {
+type BasicKeyringNames = {
+  [P in keyof typeof KEYRING_TYPE]: typeof KEYRING_TYPE[P];
+};
+export type BasicKeyrings = BasicKeyringNames[keyof BasicKeyringNames];
+
+type HardwareKeyringNames = {
+  [P in keyof typeof HARDWARE_KEYRING_TYPES]: typeof HARDWARE_KEYRING_TYPES[P]['type'];
+};
+export type HardwareKeyrings = HardwareKeyringNames[keyof HardwareKeyringNames];
+
+export type KeyringWithIcon = keyof typeof KEYRING_ICONS;
+
+export const KEYRING_ICONS_WHITE: Record<KeyringWithIcon, string> = {
   [KEYRING_CLASS.MNEMONIC]: IconMnemonicWhite,
   [KEYRING_CLASS.PRIVATE_KEY]: IconPrivateKeyWhite,
   [KEYRING_CLASS.WATCH]: IconWatchWhite,
@@ -628,16 +991,18 @@ export const KEYRING_ICONS_WHITE = {
   [HARDWARE_KEYRING_TYPES.Onekey.type]: LogoOnekey,
   [HARDWARE_KEYRING_TYPES.Trezor.type]: IconTrezor24,
   [HARDWARE_KEYRING_TYPES.GridPlus.type]: IconGridPlus,
-  [HARDWARE_KEYRING_TYPES.Keystone.type]: LogoKeystone,
+  [HARDWARE_KEYRING_TYPES.ImKey.type]: IconImKey,
+  // [HARDWARE_KEYRING_TYPES.Keystone.type]: LogoKeystone,
 };
+
 export const KEYRING_PURPLE_LOGOS = {
   [KEYRING_CLASS.MNEMONIC]: IconMnemonicInk,
   [KEYRING_CLASS.PRIVATE_KEY]: IconPrivateKeyInk,
   [KEYRING_CLASS.WATCH]: IconWatchPurple,
 };
 
-export const KEYRINGS_LOGOS = {
-  [KEYRING_CLASS.MNEMONIC]: LogoMnemonic,
+export const KEYRINGS_LOGOS: Record<KeyringWithIcon, string> = {
+  [KEYRING_CLASS.MNEMONIC]: IconMnemonicWhite,
   [KEYRING_CLASS.PRIVATE_KEY]: LogoPrivateKey,
   [KEYRING_CLASS.WATCH]: IconWatchWhite,
   [HARDWARE_KEYRING_TYPES.BitBox02.type]: IconBitBox02WithBorder,
@@ -645,7 +1010,86 @@ export const KEYRINGS_LOGOS = {
   [HARDWARE_KEYRING_TYPES.Onekey.type]: IconOneKey18,
   [HARDWARE_KEYRING_TYPES.Trezor.type]: IconTrezor24Border,
   [HARDWARE_KEYRING_TYPES.GridPlus.type]: IconGridPlus,
+  [HARDWARE_KEYRING_TYPES.ImKey.type]: IconImKey,
+  // [HARDWARE_KEYRING_TYPES.Keystone.type]: LogoKeystone,
 };
+
+type NextKeyringIconType = {
+  dataDark: ThemeIconType & string;
+  rcDark: Exclude<ThemeIconType, string>;
+  dataLight: ThemeIconType & string;
+  rcLight: Exclude<ThemeIconType, string>;
+};
+
+export const NEXT_KEYRING_ICONS = {
+  [KEYRING_CLASS.MNEMONIC]: {
+    dataLight: KEYRING_ICONS_WHITE[KEYRING_CLASS.MNEMONIC],
+    dataDark: KEYRING_ICONS[KEYRING_CLASS.MNEMONIC],
+    rcLight: RcIconMnemonicWhite,
+    rcDark: RcIconMnemonicInk,
+  } as NextKeyringIconType,
+  [KEYRING_CLASS.PRIVATE_KEY]: {
+    dataLight: KEYRING_ICONS_WHITE[KEYRING_CLASS.PRIVATE_KEY],
+    dataDark: KEYRING_ICONS[KEYRING_CLASS.PRIVATE_KEY],
+    rcLight: RcIconPrivateKeyWhite,
+    rcDark: RcIconPrivateKeyInk,
+  } as NextKeyringIconType,
+  [KEYRING_CLASS.WATCH]: {
+    dataLight: KEYRING_ICONS_WHITE[KEYRING_CLASS.WATCH],
+    dataDark: KEYRING_ICONS[KEYRING_CLASS.WATCH],
+    rcLight: RcIconWatchWhite,
+    rcDark: RcIconWatchPurple,
+  } as NextKeyringIconType,
+  [HARDWARE_KEYRING_TYPES.BitBox02.type]: {
+    dataLight: KEYRING_ICONS_WHITE[HARDWARE_KEYRING_TYPES.BitBox02.type],
+    dataDark: KEYRING_ICONS[HARDWARE_KEYRING_TYPES.BitBox02.type],
+    rcLight: RcIconBitBox02,
+    rcDark: RcIconBitBox02,
+  } as NextKeyringIconType,
+  [HARDWARE_KEYRING_TYPES.Ledger.type]: {
+    dataLight: KEYRING_ICONS_WHITE[HARDWARE_KEYRING_TYPES.Ledger.type],
+    dataDark: KEYRING_ICONS[HARDWARE_KEYRING_TYPES.Ledger.type],
+    rcLight: RcLogoLedgerWhite,
+    rcDark: RcLogoLedgerWhite,
+  } as NextKeyringIconType,
+  [HARDWARE_KEYRING_TYPES.Onekey.type]: {
+    dataLight: KEYRING_ICONS_WHITE[HARDWARE_KEYRING_TYPES.Onekey.type],
+    dataDark: KEYRING_ICONS[HARDWARE_KEYRING_TYPES.Onekey.type],
+    rcLight: RcLogoOnekey,
+    rcDark: RcLogoOnekey,
+  } as NextKeyringIconType,
+  [HARDWARE_KEYRING_TYPES.Trezor.type]: {
+    dataLight: KEYRING_ICONS_WHITE[HARDWARE_KEYRING_TYPES.Trezor.type],
+    dataDark: KEYRING_ICONS[HARDWARE_KEYRING_TYPES.Trezor.type],
+    rcLight: RcIconTrezor24,
+    rcDark: RcIconTrezor24,
+  } as NextKeyringIconType,
+  [HARDWARE_KEYRING_TYPES.GridPlus.type]: {
+    dataLight: KEYRING_ICONS_WHITE[HARDWARE_KEYRING_TYPES.GridPlus.type],
+    dataDark: KEYRING_ICONS[HARDWARE_KEYRING_TYPES.GridPlus.type],
+    rcLight: RcIconGridPlus,
+    rcDark: RcIconGridPlus,
+  } as NextKeyringIconType,
+  [HARDWARE_KEYRING_TYPES.ImKey.type]: {
+    dataLight: KEYRING_ICONS_WHITE[HARDWARE_KEYRING_TYPES.ImKey.type],
+    dataDark: KEYRING_ICONS[HARDWARE_KEYRING_TYPES.ImKey.type],
+    rcLight: RCIconImKey,
+    rcDark: RCIconImKey,
+  } as NextKeyringIconType,
+};
+
+export const RC_KEYRING_ICONS = Object.entries(NEXT_KEYRING_ICONS).reduce(
+  (acc, [keyringClass, keyringIcons]) => {
+    acc[keyringClass] = keyringIcons;
+    return acc;
+  },
+  {} as {
+    [P in keyof typeof NEXT_KEYRING_ICONS]: {
+      rcDark: typeof NEXT_KEYRING_ICONS[P]['rcDark'];
+      rcLight: typeof NEXT_KEYRING_ICONS[P]['rcLight'];
+    };
+  }
+);
 
 export const NOT_CLOSE_UNFOCUS_LIST: string[] = [
   WALLET_BRAND_TYPES.AMBER,
@@ -667,23 +1111,27 @@ export const SORT_WEIGHT = {
 };
 
 export const GASPRICE_RANGE = ensureChainHashValid({
-  [CHAINS_ENUM.ETH]: [0, 10000],
-  [CHAINS_ENUM.BOBA]: [0, 1000],
-  [CHAINS_ENUM.OP]: [0, 1000],
-  [CHAINS_ENUM.ARBITRUM]: [0, 1000],
-  [CHAINS_ENUM.AURORA]: [0, 1000],
-  [CHAINS_ENUM.BSC]: [0, 1000],
-  [CHAINS_ENUM.AVAX]: [0, 4000],
-  [CHAINS_ENUM.POLYGON]: [0, 250000],
-  [CHAINS_ENUM.FTM]: [0, 360000],
+  [CHAINS_ENUM.ETH]: [0, 20000],
+  [CHAINS_ENUM.BOBA]: [0, 20000],
+  [CHAINS_ENUM.OP]: [0, 20000],
+  [CHAINS_ENUM.BASE]: [0, 20000],
+  [CHAINS_ENUM.ZORA]: [0, 20000],
+  [CHAINS_ENUM.ERA]: [0, 20000],
+  [CHAINS_ENUM.KAVA]: [0, 20000],
+  [CHAINS_ENUM.ARBITRUM]: [0, 20000],
+  [CHAINS_ENUM.AURORA]: [0, 20000],
+  [CHAINS_ENUM.BSC]: [0, 20000],
+  [CHAINS_ENUM.AVAX]: [0, 40000],
+  [CHAINS_ENUM.POLYGON]: [0, 100000],
+  [CHAINS_ENUM.FTM]: [0, 100000],
   [CHAINS_ENUM.GNOSIS]: [0, 500000],
-  [CHAINS_ENUM.OKT]: [0, 15000],
-  [CHAINS_ENUM.HECO]: [0, 50000],
+  [CHAINS_ENUM.OKT]: [0, 50000],
+  [CHAINS_ENUM.HECO]: [0, 100000],
   [CHAINS_ENUM.CELO]: [0, 100000],
-  [CHAINS_ENUM.MOVR]: [0, 3000],
-  [CHAINS_ENUM.CRO]: [0, 100000],
+  [CHAINS_ENUM.MOVR]: [0, 50000],
+  [CHAINS_ENUM.CRO]: [0, 500000],
   [CHAINS_ENUM.BTT]: [0, 20000000000],
-  [CHAINS_ENUM.METIS]: [0, 3000],
+  [CHAINS_ENUM.METIS]: [0, 50000],
 });
 
 export const HDPaths = {
@@ -714,7 +1162,9 @@ export const KEYRING_CATEGORY_MAP = {
   [KEYRING_CLASS.HARDWARE.KEYSTONE]: KEYRING_CATEGORY.Hardware,
   [KEYRING_CLASS.HARDWARE.GRIDPLUS]: KEYRING_CATEGORY.Hardware,
   [KEYRING_CLASS.WALLETCONNECT]: KEYRING_CATEGORY.WalletConnect,
+  [KEYRING_CLASS.Coinbase]: KEYRING_CATEGORY.WalletConnect,
   [KEYRING_CLASS.GNOSIS]: KEYRING_CATEGORY.Contract,
+  [KEYRING_CLASS.HARDWARE.IMKEY]: KEYRING_CATEGORY.Hardware,
 };
 
 export const SWAP_FEE_PRECISION = 1e5;
@@ -723,27 +1173,34 @@ export const DEFAULT_GAS_LIMIT_RATIO = 1.5;
 
 export const SAFE_GAS_LIMIT_RATIO = {
   '1284': 2,
+  '1285': 2,
+  '1287': 2,
 };
+
+export const SAFE_GAS_LIMIT_BUFFER = {
+  '996': 0.86,
+  '49088': 0.86,
+  '3068': 0.86,
+};
+
+export const DEFAULT_GAS_LIMIT_BUFFER = 0.95;
+
 export const GAS_TOP_UP_ADDRESS = '0x7559e1bbe06e94aeed8000d5671ed424397d25b5';
 export const GAS_TOP_UP_PAY_ADDRESS =
   '0x1f1f2bf8942861e6194fda1c0a9f13921c0cf117';
+export const FREE_GAS_ADDRESS = '0x76dd65529dc6c073c1e0af2a5ecc78434bdbf7d9';
 
 export const GAS_TOP_UP_SUPPORT_TOKENS: Record<string, string[]> = {
   arb: [
+    '0xaf88d065e77c8cc2239327c5edb3a432268e5831',
     '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1',
     '0xfd086bc7cd5c481dcc9c85ebe478a1c0b69fcbb9',
-    '0xff970a61a04b1ca14834a43f5de4533ebddb5cc8',
     'arb',
   ],
   astar: ['astar'],
   aurora: ['aurora'],
-  avax: [
-    '0x9702230a8ea53601f5cd2dc00fdbc13d4df4a8c7',
-    '0xb31f66aa3c1e785363f0875a1b74e27b85fd66c7',
-    '0xb97ef9ef8734c71904d8002f8b6bc66dd9c48a6e',
-    '0xd586e7f844cea2f87f50152665bcbc2c279d8d70',
-    'avax',
-  ],
+  avax: ['avax'],
+  base: ['0x833589fcd6edb6e08f4c7c32d4f71b54bda02913', 'base'],
   boba: ['boba'],
   bsc: [
     '0x1af3f329e8be154074d8769d1ffa4ee058b1dbc3',
@@ -751,23 +1208,13 @@ export const GAS_TOP_UP_SUPPORT_TOKENS: Record<string, string[]> = {
     '0x55d398326f99059ff775485246999027b3197955',
     '0x8ac76a51cc950d9822d68b83fe1ad97b32cd580d',
     '0xbb4cdb9cbd36b01bd1cbaebf2de08d9173bc095c',
-    '0xe9e7cea3dedca5984780bafc599bd69add087d56',
     'bsc',
   ],
-  btt: ['btt'],
   canto: ['canto'],
   celo: ['celo'],
-  cro: [
-    '0x5c7f8a570d578ed84e63fdfa7b1ee72deae1ae23',
-    '0x66e428c3f67a68878562e79a0234c1f83c208770',
-    '0xc21223249ca28397b4b6541dffaecc539bff0c59',
-    '0xf2001b145b43032aaf5ee2884e456ccd805f677d',
-    'cro',
-  ],
-  dfk: ['dfk'],
-  doge: ['doge'],
+  cro: ['0x5c7f8a570d578ed84e63fdfa7b1ee72deae1ae23', 'cro'],
+  era: ['era'],
   eth: [
-    '0x4fabb145d64652a948d72533023f6e7a623c7c53',
     '0x6b175474e89094c44da98b954eedeac495271d0f',
     '0xa0b86991c6218b36c1d19d4a2e9eb0ce3606eb48',
     '0xc02aaa39b223fe8d0a0e5c4f27ead9083c756cc2',
@@ -775,58 +1222,93 @@ export const GAS_TOP_UP_SUPPORT_TOKENS: Record<string, string[]> = {
     'eth',
   ],
   evmos: ['evmos'],
-  ftm: [
-    '0x04068da6c83afcfa0e13ba15a6696662335d5b75',
-    '0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83',
-    'ftm',
-  ],
-  fuse: ['fuse'],
-  heco: ['heco'],
+  ftm: ['0x21be370d5312f44cb42ce377bc9b8a0cef1a4c83', 'ftm'],
   hmy: ['hmy'],
-  iotx: ['iotx'],
+  kava: ['kava'],
   kcc: ['kcc'],
-  klay: ['klay'],
+  linea: ['linea'],
   matic: [
     '0x0d500b1d8e8ef31e21c99d1db9a6444d3adf1270',
-    '0x2791bca1f2de4661ed88a30c99a7a9449aa84174',
+    '0x3c499c542cef5e3811e1192ce70d8cc03d5c3359',
     '0x8f3cf7ad23cd3cadbd9735aff958023239c6a063',
     '0xc2132d05d31c914a87c6611c10748aeb04b58e8f',
     'matic',
   ],
   metis: ['metis'],
+  mnt: ['mnt'],
   mobm: ['mobm'],
   movr: ['movr'],
   nova: ['nova'],
   okt: ['okt'],
   op: [
-    '0x7f5c764cbc14f9669b88837ca1490cca17c31607',
+    '0x0b2c639c533813f4aa9d7837caf62653d097ff85',
     '0x94b008aa00579c1307b0ef2c499ad98a8ce58e58',
     '0xda10009cbd5d07dd0cecc66161fc93d7c9000da1',
     'op',
   ],
-  palm: ['palm'],
-  rsk: ['rsk'],
-  sbch: ['sbch'],
-  sdn: ['sdn'],
-  sgb: ['sgb'],
-  // swm: ['swm'],
-  tlos: ['tlos'],
-  wan: ['wan'],
+  opbnb: ['opbnb'],
+  pls: ['pls'],
+  pze: ['pze'],
+  scrl: ['scrl'],
   xdai: ['xdai'],
 };
 
 export const EXTERNAL_RESOURCE_DOMAIN_BLACK_LIST = ['5degrees.io'];
 
 export const ALIAS_ADDRESS = {
-  [GAS_TOP_UP_ADDRESS]: 'Gas Top Up',
-  [GAS_TOP_UP_PAY_ADDRESS]: 'Gas Top Up',
+  [GAS_TOP_UP_ADDRESS]: 'Rabby Gas Top Up',
+  [GAS_TOP_UP_PAY_ADDRESS]: 'Rabby Gas Top Up',
+  [FREE_GAS_ADDRESS]: 'Free Gas',
 };
 
+// non-opstack L2 chains
 export const L2_ENUMS = [
-  CHAINS_ENUM.OP,
   CHAINS_ENUM.ARBITRUM,
   CHAINS_ENUM.AURORA,
   CHAINS_ENUM.NOVA,
+  CHAINS_ENUM.BOBA,
+  CHAINS_ENUM.MANTLE,
+  CHAINS_ENUM.LINEA,
+  CHAINS_ENUM.MANTA,
+  CHAINS_ENUM.SCRL,
+  CHAINS_ENUM.ERA,
+  CHAINS_ENUM.PZE,
+  CHAINS_ENUM.MANTA,
+  CHAINS_ENUM.OP,
+  CHAINS_ENUM.BASE,
+  CHAINS_ENUM.ZORA,
+  CHAINS_ENUM.OPBNB,
+  CHAINS_ENUM.BLAST,
+  CHAINS_ENUM.MODE,
+  'DBK',
+  'MINT',
+  'CYBER',
+];
+
+// opstack L2 chains
+export const OP_STACK_ENUMS = [
+  CHAINS_ENUM.OP,
+  CHAINS_ENUM.BASE,
+  CHAINS_ENUM.ZORA,
+  CHAINS_ENUM.OPBNB,
+  CHAINS_ENUM.BLAST,
+  CHAINS_ENUM.MODE,
+  'DBK',
+  'MINT',
+  'CYBER',
+];
+
+export const ARB_LIKE_L2_CHAINS = [CHAINS_ENUM.ARBITRUM, CHAINS_ENUM.AURORA];
+
+export const CAN_NOT_SPECIFY_INTRINSIC_GAS_CHAINS = [...L2_ENUMS];
+
+export const CAN_ESTIMATE_L1_FEE_CHAINS = [
+  ...OP_STACK_ENUMS,
+  CHAINS_ENUM.SCRL,
+  ...ARB_LIKE_L2_CHAINS,
+  CHAINS_ENUM.PZE,
+  CHAINS_ENUM.ERA,
+  CHAINS_ENUM.LINEA,
 ];
 
 export const SecurityEngineLevelOrder = [
@@ -882,7 +1364,8 @@ declare global {
     __is_rd__?: boolean;
   }
 }
-export const IS_RD = window.__is_rd__;
+
+export const IS_RD = typeof window === 'undefined' ? false : window.__is_rd__;
 
 export const BRAND_ALIAN_TYPE_TEXT = {
   [KEYRING_TYPE.HdKeyring]: 'Seed Phrase',
@@ -900,9 +1383,11 @@ export const BRAND_ALIAN_TYPE_TEXT = {
   [WALLET_BRAND_TYPES.IMTOKEN]: WALLET_BRAND_CONTENT.IMTOKEN.name,
   [WALLET_BRAND_TYPES.MATHWALLET]: WALLET_BRAND_CONTENT.MATHWALLET.name,
   [WALLET_BRAND_TYPES.TRUSTWALLET]: WALLET_BRAND_CONTENT.TRUSTWALLET.name,
+  [KEYRING_CLASS.Coinbase]: WALLET_BRAND_CONTENT.Coinbase.name,
+  [KEYRING_CLASS.HARDWARE.IMKEY]: 'imKey',
 };
 
-export const GNOSIS_SUPPORT_CHAINS = ensureChainListValid([
+export const GNOSIS_SUPPORT_CHAINS = [
   CHAINS_ENUM.ETH,
   CHAINS_ENUM.BSC,
   CHAINS_ENUM.POLYGON,
@@ -912,7 +1397,17 @@ export const GNOSIS_SUPPORT_CHAINS = ensureChainListValid([
   CHAINS_ENUM.ARBITRUM,
   CHAINS_ENUM.AURORA,
   CHAINS_ENUM.BASE,
-]);
+  CHAINS_ENUM.CELO,
+  CHAINS_ENUM.PZE,
+  CHAINS_ENUM.ERA,
+  CHAINS_ENUM.SCRL,
+  CHAINS_ENUM.LINEA,
+  'XLAYER',
+  CHAINS_ENUM.MANTLE,
+  'WORLD',
+  CHAINS_ENUM.BLAST,
+  'SONIC',
+];
 
 export const COBO_ARGUS_SUPPORT_CHAINS = ensureChainListValid([
   CHAINS_ENUM.ETH,
@@ -921,6 +1416,12 @@ export const COBO_ARGUS_SUPPORT_CHAINS = ensureChainListValid([
   CHAINS_ENUM.POLYGON,
   CHAINS_ENUM.ARBITRUM,
   CHAINS_ENUM.AVAX,
+  CHAINS_ENUM.BASE,
+  CHAINS_ENUM.MANTLE,
+  CHAINS_ENUM.GNOSIS,
+  CHAINS_ENUM.SCRL,
+  CHAINS_ENUM.MANTA,
+  CHAINS_ENUM.MODE,
 ]);
 
 export const WALLET_SORT_SCORE = [
@@ -944,13 +1445,15 @@ export const WALLET_SORT_SCORE = [
   WALLET_BRAND_TYPES.BITBOX02,
   WALLET_BRAND_TYPES.COOLWALLET,
   WALLET_BRAND_TYPES.AIRGAP,
+  WALLET_BRAND_TYPES.IMTOKENOFFLINE,
+  WALLET_BRAND_TYPES.Coinbase,
   //institutional
   WALLET_BRAND_TYPES.GNOSIS,
   WALLET_BRAND_TYPES.CoboArgus,
   WALLET_BRAND_TYPES.AMBER,
   WALLET_BRAND_TYPES.FIREBLOCKS,
-  // WALLET_BRAND_TYPES.COBO,
   WALLET_BRAND_TYPES.JADE,
+  WALLET_BRAND_TYPES.MPCVault,
 ].reduce((pre, now, i) => {
   pre[now] = i + 1;
   return pre;
@@ -961,18 +1464,6 @@ export const SWAP_FEE_ADDRESS = '0x39041F1B366fE33F9A5a79dE5120F2Aee2577ebc';
 export const ETH_USDT_CONTRACT = '0xdac17f958d2ee523a2206206994597c13d831ec7';
 
 export const DEX = {
-  [DEX_ENUM.UNISWAP]: {
-    id: DEX_ENUM.UNISWAP,
-    logo: LogoUniswap,
-    name: 'Uniswap',
-    chains: DEX_SUPPORT_CHAINS[DEX_ENUM.UNISWAP],
-  },
-  [DEX_ENUM.ONEINCH]: {
-    id: DEX_ENUM.ONEINCH,
-    logo: Logo1inch,
-    name: '1inch',
-    chains: DEX_SUPPORT_CHAINS[DEX_ENUM.ONEINCH],
-  },
   [DEX_ENUM.ZEROXAPI]: {
     id: DEX_ENUM.ZEROXAPI,
     logo: Logo0X,
@@ -985,6 +1476,13 @@ export const DEX = {
     name: 'ParaSwap',
     chains: DEX_SUPPORT_CHAINS[DEX_ENUM.PARASWAP],
   },
+  [DEX_ENUM.ONEINCH]: {
+    id: DEX_ENUM.ONEINCH,
+    logo: Logo1inch,
+    name: '1inch',
+    chains: DEX_SUPPORT_CHAINS[DEX_ENUM.ONEINCH],
+  },
+
   [DEX_ENUM.OPENOCEAN]: {
     id: DEX_ENUM.OPENOCEAN,
     logo: LogoOpenOcean,
@@ -996,6 +1494,30 @@ export const DEX = {
     logo: LogoKyberSwap,
     name: 'KyberSwap',
     chains: DEX_SUPPORT_CHAINS[DEX_ENUM.KYBERSWAP],
+  },
+  [DEX_ENUM.PARASWAPV6]: {
+    id: DEX_ENUM.PARASWAPV6,
+    logo: LogoParaswap,
+    name: 'ParaSwap',
+    chains: DEX_SUPPORT_CHAINS[DEX_ENUM.PARASWAPV6],
+  },
+  [DEX_ENUM.ODOS]: {
+    id: DEX_ENUM.ODOS,
+    logo: LogoOdos,
+    name: 'Odos',
+    chains: DEX_SUPPORT_CHAINS[DEX_ENUM.ODOS],
+  },
+  [DEX_ENUM.ZEROXAPIV2]: {
+    id: DEX_ENUM.ZEROXAPIV2,
+    logo: Logo0X,
+    name: '0x',
+    chains: DEX_SUPPORT_CHAINS[DEX_ENUM.ZEROXAPIV2],
+  },
+  [DEX_ENUM.MAGPIE]: {
+    id: DEX_ENUM.MAGPIE,
+    logo: LogoMagpie,
+    name: 'Magpie',
+    chains: DEX_SUPPORT_CHAINS[DEX_ENUM.MAGPIE],
   },
 };
 
@@ -1009,21 +1531,21 @@ export const DEX_WITH_WRAP = {
 };
 
 export const CEX = {
-  binance: {
-    id: 'binance',
-    name: 'Binance',
-    logo: LogoBinance,
-  },
-  coinbase: {
-    id: 'coinbase',
-    name: 'Coinbase',
-    logo: LogoCoinbase,
-  },
-  okex: {
-    id: 'okex',
-    name: 'OKX',
-    logo: LogoOkx,
-  },
+  // binance: {
+  //   id: 'binance',
+  //   name: 'Binance',
+  //   logo: LogoBinance,
+  // },
+  // coinbase: {
+  //   id: 'coinbase',
+  //   name: 'Coinbase',
+  //   logo: LogoCoinbase,
+  // },
+  // okex: {
+  //   id: 'okex',
+  //   name: 'OKX',
+  //   logo: LogoOkx,
+  // },
 };
 
 export const SWAP_SUPPORT_CHAINS = Array.from(
@@ -1044,3 +1566,42 @@ export const SIGN_PERMISSION_OPTIONS = [
     value: SIGN_PERMISSION_TYPES.TESTNET,
   },
 ];
+
+export enum CANCEL_TX_TYPE {
+  QUICK_CANCEL = 'QUICK_CANCEL',
+  ON_CHAIN_CANCEL = 'ON_CHAIN_CANCEL',
+  REMOVE_LOCAL_PENDING_TX = 'REMOVE_LOCAL_PENDING_TX',
+}
+export const REJECT_SIGN_TEXT_KEYRINGS = [KEYRING_TYPE.CoboArgusKeyring];
+
+export enum DARK_MODE_TYPE {
+  'light' = 0,
+  'dark' = 1,
+  'system' = 2,
+}
+
+export const ThemeModes = [
+  {
+    code: DARK_MODE_TYPE.system,
+    name: 'System',
+  },
+  {
+    code: DARK_MODE_TYPE.light,
+    name: 'Light',
+  },
+  {
+    code: DARK_MODE_TYPE.dark,
+    name: 'Dark',
+  },
+];
+
+export const imKeyUSBVendorId = 0x096e;
+
+export const DBK_CHAIN_ID = 20240603;
+
+export const DBK_CHAIN_BRIDGE_CONTRACT =
+  '0x28f1b9F457CB51E0af56dff1d11CD6CEdFfD1977';
+export const DBK_NFT_CONTRACT_ADDRESS =
+  '0x633b7472E1641D59334886a7692107D6332B1ff0';
+
+export const SELF_HOST_SAFE_NETWORKS = ['1'];

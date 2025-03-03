@@ -1,121 +1,29 @@
-import { Result } from '@rabby-wallet/rabby-security-engine';
-import { Chain, ExplainTxResponse } from 'background/service/openapi';
-import React, { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
-import BalanceChange from '../TxComponents/BalanceChange';
-import ViewRawModal from '../TxComponents/ViewRawModal';
-import ApproveNFT from './ApproveNFT';
-import ApproveNFTCollection from './ApproveNFTCollection';
-import CancelTx from './CancelTx';
-import ContractCall from './ContractCall';
-import DeployContract from './DeployContract';
-import RevokeNFT from './RevokeNFT';
-import RevokeNFTCollection from './RevokeNFTCollection';
-import Send from './Send';
-import SendNFT from './SendNFT';
-import Swap from './Swap';
-import TokenApprove from './TokenApprove';
-import RevokeTokenApprove from './RevokeTokenApprove';
-import WrapToken from './WrapToken';
-import UnWrapToken from './UnWrapToken';
-import PushMultiSig from './PushMultiSig';
-import CrossToken from './CrossToken';
-import CrossSwapToken from './CrossSwapToken';
-import RevokePermit2 from './RevokePermit2';
+import ChainIcon from '@/ui/component/ChainIcon';
+import ThemeIcon from '@/ui/component/ThemeMode/ThemeIcon';
+import { TooltipWithMagnetArrow } from '@/ui/component/Tooltip/TooltipWithMagnetArrow';
+import { useWallet } from '@/ui/utils';
 import {
   ActionRequireData,
-  ApproveNFTRequireData,
-  ApproveTokenRequireData,
-  CancelTxRequireData,
-  ContractCallRequireData,
-  ParsedActionData,
-  PushMultiSigRequireData,
-  RevokeNFTRequireData,
-  RevokeTokenApproveRequireData,
-  SendRequireData,
-  SwapRequireData,
-  WrapTokenRequireData,
-  getActionTypeText,
-} from './utils';
-import IconArrowRight from 'ui/assets/approval/edit-arrow-right.svg';
+  ParsedTransactionActionData,
+} from '@rabby-wallet/rabby-action';
+import { Result } from '@rabby-wallet/rabby-security-engine';
+import { Chain, ExplainTxResponse } from 'background/service/openapi';
+import clsx from 'clsx';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ReactComponent as RcIconArrowRight } from 'ui/assets/approval/edit-arrow-right.svg';
+import { ReactComponent as IconQuestionMark } from 'ui/assets/sign/question-mark.svg';
 import IconSpeedUp from 'ui/assets/sign/tx/speedup.svg';
-import { ReactComponent as IconQuestionMark } from 'ui/assets/sign/tx/question-mark.svg';
-import { TooltipWithMagnetArrow } from '@/ui/component/Tooltip/TooltipWithMagnetArrow';
-
-export const SignTitle = styled.div`
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 15px;
-  .left {
-    display: flex;
-    font-size: 18px;
-    line-height: 21px;
-    color: #333333;
-    flex: 1;
-    .icon-speedup {
-      width: 10px;
-      margin-right: 6px;
-      cursor: pointer;
-    }
-  }
-  .right {
-    font-size: 14px;
-    line-height: 16px;
-    color: #999999;
-    cursor: pointer;
-  }
-`;
-
-export const ActionWrapper = styled.div`
-  background-color: #fff;
-  border-radius: 8px;
-  .action-header {
-    display: flex;
-    justify-content: space-between;
-    background: var(--r-blue-default, #7084ff);
-    padding: 14px;
-    align-items: center;
-    color: #fff;
-    border-top-left-radius: 8px;
-    border-top-right-radius: 8px;
-    .left {
-      font-weight: 500;
-      font-size: 16px;
-      line-height: 19px;
-    }
-    .right {
-      font-size: 14px;
-      line-height: 16px;
-      .icon-tip {
-        margin-top: 1px;
-        margin-left: 4px;
-        path {
-          stroke: #fff;
-        }
-      }
-    }
-  }
-  .container {
-    padding: 14px;
-    .header {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 16px;
-      .left {
-        font-weight: 500;
-        font-size: 16px;
-        line-height: 19px;
-        color: #222222;
-      }
-      .right {
-        font-size: 14px;
-        line-height: 16px;
-        color: #999999;
-      }
-    }
-  }
-`;
+import { ActionWrapper } from '../ActionWrapper';
+import { Card } from '../Card';
+import { Divide } from '../Divide';
+import { NoActionAlert } from '../NoActionAlert/NoActionAlert';
+import { OriginInfo } from '../OriginInfo';
+import ViewRawModal from '../TxComponents/ViewRawModal';
+import { Col, Row } from './components/Table';
+import { TransactionActionList } from './components/TransactionActionList';
+import { getActionTypeText } from './utils';
+import { BalanceChangeWrapper } from '../TxComponents/BalanceChangeWrapper';
 
 const Actions = ({
   data,
@@ -126,8 +34,10 @@ const Actions = ({
   raw,
   onChange,
   isSpeedUp,
+  origin,
+  originLogo,
 }: {
-  data: ParsedActionData;
+  data: ParsedTransactionActionData;
   requireData: ActionRequireData;
   chain: Chain;
   engineResults: Result[];
@@ -135,10 +45,13 @@ const Actions = ({
   raw: Record<string, string | number>;
   onChange(tx: Record<string, any>): void;
   isSpeedUp: boolean;
+  origin?: string;
+  originLogo?: string;
 }) => {
   const actionName = useMemo(() => {
     return getActionTypeText(data);
   }, [data]);
+
   const { t } = useTranslation();
 
   const handleViewRawClick = () => {
@@ -148,199 +61,123 @@ const Actions = ({
     });
   };
 
+  const isUnknown = data?.contractCall;
+
+  const wallet = useWallet();
+  const [customRPC, setCustomRPC] = useState('');
+  const getCustomRPC = async () => {
+    const rpc = await wallet.getCustomRpcByChain(chain.enum);
+    setCustomRPC(rpc?.enable ? rpc.url : '');
+  };
+  useEffect(() => {
+    getCustomRPC();
+  }, [chain]);
+
   return (
     <>
-      <SignTitle>
-        <div className="left relative">
-          {isSpeedUp && (
-            <TooltipWithMagnetArrow
-              overlayClassName="rectangle w-[max-content]"
-              title={t('page.signTx.speedUpTooltip')}
-            >
-              <img src={IconSpeedUp} className="icon icon-speedup" />
-            </TooltipWithMagnetArrow>
-          )}
-          {t('page.signTx.signTransactionOnChain', { chain: chain.name })}
-        </div>
-        <div
-          className="float-right text-12 cursor-pointer flex items-center view-raw"
-          onClick={handleViewRawClick}
-        >
-          {t('page.signTx.viewRaw')}
-          <img className="icon icon-arrow-right" src={IconArrowRight} />
-        </div>
-      </SignTitle>
       <ActionWrapper>
-        <div className="action-header">
-          <div className="left">{actionName}</div>
-          <div className="right">
-            {data.contractCall && (
-              <span className="flex items-center relative">
-                {t('page.signTx.unknownActionType')}{' '}
+        <Card>
+          <OriginInfo
+            chain={chain}
+            origin={origin}
+            originLogo={originLogo}
+            engineResults={engineResults}
+          />
+          <BalanceChangeWrapper
+            data={data}
+            balanceChange={txDetail.balance_change}
+            preExecSuccess={txDetail.pre_exec.success}
+            preExecVersion={txDetail.pre_exec_version}
+          />
+        </Card>
+
+        <Card>
+          <div
+            className={clsx('action-header', {
+              'is-unknown': isUnknown,
+            })}
+          >
+            <div className="left">
+              {isSpeedUp && (
                 <TooltipWithMagnetArrow
+                  inApproval
+                  placement="bottom"
                   overlayClassName="rectangle w-[max-content]"
-                  title={t('page.signTx.sigCantDecode')}
-                  placement="top"
+                  title={t('page.signTx.speedUpTooltip')}
+                  viewportOffset={[0, -16, 0, 16]}
                 >
-                  <IconQuestionMark className="icon icon-tip" />
+                  <img
+                    src={IconSpeedUp}
+                    className="icon icon-speedup mr-2 w-16 h-16"
+                  />
                 </TooltipWithMagnetArrow>
-              </span>
-            )}
+              )}
+              <span>{actionName}</span>
+              {isUnknown && (
+                <TooltipWithMagnetArrow
+                  inApproval
+                  placement="bottom"
+                  overlayClassName="rectangle w-[max-content] decode-tooltip"
+                  title={
+                    <NoActionAlert
+                      data={{
+                        chainId: chain.serverId,
+                        contractAddress:
+                          requireData && 'id' in requireData
+                            ? requireData.id
+                            : txDetail.type_call?.contract,
+                        selector: raw.data.toString(),
+                      }}
+                    />
+                  }
+                >
+                  <IconQuestionMark className="w-14 text-r-neutral-foot ml-2 mt-2" />
+                </TooltipWithMagnetArrow>
+              )}
+            </div>
+            <div className="right">
+              <div
+                className="float-right text-13 cursor-pointer flex items-center view-raw"
+                onClick={handleViewRawClick}
+              >
+                {t('page.signTx.viewRaw')}
+                <ThemeIcon
+                  className="icon icon-arrow-right"
+                  src={RcIconArrowRight}
+                />
+              </div>
+            </div>
           </div>
-        </div>
-        <div className="container">
-          {data.swap && (
-            <Swap
-              data={data.swap}
-              requireData={requireData as SwapRequireData}
+          <Divide />
+          <div className="container">
+            <Col>
+              <Row isTitle>{t('page.signTx.chain')}</Row>
+              <Row>
+                <div className="flex items-center gap-[6px]">
+                  <ChainIcon
+                    chain={chain.enum}
+                    size={'small'}
+                    innerClassName="w-[16px] h-[16px]"
+                    customRPC={customRPC}
+                    showCustomRPCToolTip
+                  ></ChainIcon>
+                  <div className="truncate text-rabby-neutral-title1">
+                    {chain.name}
+                  </div>
+                </div>
+              </Row>
+            </Col>
+            <TransactionActionList
+              data={data}
+              requireData={requireData}
               chain={chain}
               engineResults={engineResults}
-            />
-          )}
-          {data.crossToken && (
-            <CrossToken
-              data={data.crossToken}
-              requireData={requireData as SwapRequireData}
-              chain={chain}
-              engineResults={engineResults}
-            />
-          )}
-          {data.crossSwapToken && (
-            <CrossSwapToken
-              data={data.crossSwapToken}
-              requireData={requireData as SwapRequireData}
-              chain={chain}
-              engineResults={engineResults}
-            />
-          )}
-          {data.wrapToken && (
-            <WrapToken
-              data={data.wrapToken}
-              requireData={requireData as WrapTokenRequireData}
-              chain={chain}
-              engineResults={engineResults}
-            />
-          )}
-          {data.unWrapToken && (
-            <UnWrapToken
-              data={data.unWrapToken}
-              requireData={requireData as WrapTokenRequireData}
-              chain={chain}
-              engineResults={engineResults}
-            />
-          )}
-          {data.send && (
-            <Send
-              data={data.send}
-              requireData={requireData as SendRequireData}
-              chain={chain}
-              engineResults={engineResults}
-            />
-          )}
-          {data.approveToken && (
-            <TokenApprove
-              data={data.approveToken}
-              requireData={requireData as ApproveTokenRequireData}
-              chain={chain}
-              engineResults={engineResults}
-              onChange={onChange}
               raw={raw}
-            />
-          )}
-          {data.revokeToken && (
-            <RevokeTokenApprove
-              data={data.revokeToken}
-              requireData={requireData as RevokeTokenApproveRequireData}
-              chain={chain}
-              engineResults={engineResults}
               onChange={onChange}
-              raw={raw}
             />
-          )}
-          {data.revokePermit2 && (
-            <RevokePermit2
-              data={data.revokePermit2}
-              requireData={requireData as RevokeTokenApproveRequireData}
-              chain={chain}
-              engineResults={engineResults}
-              onChange={onChange}
-              raw={raw}
-            />
-          )}
-          {data.cancelTx && (
-            <CancelTx
-              data={data.cancelTx}
-              requireData={requireData as CancelTxRequireData}
-              chain={chain}
-              engineResults={engineResults}
-              onChange={onChange}
-              raw={raw}
-            ></CancelTx>
-          )}
-          {data?.sendNFT && (
-            <SendNFT
-              data={data.sendNFT}
-              requireData={requireData as SendRequireData}
-              chain={chain}
-              engineResults={engineResults}
-            />
-          )}
-          {data?.approveNFT && (
-            <ApproveNFT
-              data={data.approveNFT}
-              requireData={requireData as ApproveNFTRequireData}
-              chain={chain}
-              engineResults={engineResults}
-            />
-          )}
-          {data?.revokeNFT && (
-            <RevokeNFT
-              data={data.revokeNFT}
-              requireData={requireData as RevokeNFTRequireData}
-              chain={chain}
-              engineResults={engineResults}
-            />
-          )}
-          {data?.revokeNFTCollection && (
-            <RevokeNFTCollection
-              data={data.revokeNFTCollection}
-              requireData={requireData as RevokeNFTRequireData}
-              chain={chain}
-              engineResults={engineResults}
-            />
-          )}
-          {data?.approveNFTCollection && (
-            <ApproveNFTCollection
-              data={data.approveNFTCollection}
-              requireData={requireData as RevokeNFTRequireData}
-              chain={chain}
-              engineResults={engineResults}
-            />
-          )}
-          {data?.deployContract && <DeployContract />}
-          {data?.pushMultiSig && (
-            <PushMultiSig
-              data={data.pushMultiSig}
-              requireData={requireData as PushMultiSigRequireData}
-              chain={chain}
-            />
-          )}
-          {data.contractCall && (
-            <ContractCall
-              data={data.contractCall}
-              requireData={requireData as ContractCallRequireData}
-              chain={chain}
-              engineResults={engineResults}
-              onChange={onChange}
-              raw={raw}
-            />
-          )}
-        </div>
+          </div>
+        </Card>
       </ActionWrapper>
-      <BalanceChange
-        version={txDetail.pre_exec_version}
-        data={txDetail.balance_change}
-      />
     </>
   );
 };

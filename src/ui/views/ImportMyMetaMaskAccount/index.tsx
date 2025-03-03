@@ -1,12 +1,11 @@
-import { BlueHeader, Item } from '@/ui/component';
+import { BlueHeader } from '@/ui/component';
 import { openInTab, openInternalPageInTab } from '@/ui/utils';
-import { Timeline } from 'antd';
 import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import IconMetamask from 'ui/assets/dashboard/icon-metamask.svg';
-import IconMnemonics from 'ui/assets/import/mnemonics.svg';
-import IconPrivatekey from 'ui/assets/import/privatekey.svg';
+import { ReactComponent as RcIconMnemonics } from 'ui/assets/import/mnemonics-currentcolor.svg';
+import { ReactComponent as RcIconPrivatekey } from 'ui/assets/import/privatekey-currentcolor.svg';
 import IconTinRightArrow from 'ui/assets/address/tiny-arrow-right.svg';
 
 import './style.less';
@@ -26,7 +25,7 @@ export const ImportMyMetaMaskAccount = () => {
           e.preventDefault();
           openInTab('https://rabby.io/metamask-export');
         }}
-        className="p-6 bg-[#EEF1FF] text-[#7084FF] text-12 font-medium relative top-8 rounded-[2px]"
+        className="hidden p-6 bg-r-blue-light-1 text-r-blue-default text-12 font-medium relative top-8 rounded-[2px]"
       >
         Click to view tutorial
         <img
@@ -39,103 +38,120 @@ export const ImportMyMetaMaskAccount = () => {
     <Trans i18nKey="page.newAddress.metamask.step3" />,
   ];
 
-  const importList = React.useMemo(
-    () => [
-      {
-        icon: IconMnemonics,
-        content: t('page.newAddress.importSeedPhrase'),
-        onClick: () => {
-          openInternalPageInTab('import/mnemonics');
-        },
-      },
-      {
-        icon: IconPrivatekey,
-        content: t('page.newAddress.importPrivateKey'),
-        onClick: () => {
-          history.push('/import/key');
-        },
-      },
-    ],
-    [t]
-  );
   return (
     <div className="add-metamask">
       <BlueHeader className="mx-[-20px]">
         {t('page.newAddress.importMyMetamaskAccount')}
       </BlueHeader>
-      <div className="rabby-container">
-        <div className="relative bg-white mt-[12px] rounded-[6px] px-[12px] py-[12px] mb-[12px]">
-          <div className="metamask-shadow" />
-
-          <div className="flex items-center">
+      <div className="rabby-container text-r-neutral-title-1">
+        <div
+          style={{
+            background:
+              'linear-gradient(180deg, rgba(251, 140, 0, 0.12) 0%, rgba(251, 140, 0, 0.00) 30.37%), var(--r-neutral-card1, #FFF)',
+          }}
+          className="relative rounded-[6px] px-[12px] py-[16px] my-20"
+        >
+          <div className="flex items-center justify-center">
             <img
               src={IconMetamask}
-              className="w-[32px] h-[32px]"
+              className="w-[20px] h-[20px]"
               alt="MetaMask"
             />
-            <div className="pl-[12px] text-[16px] font-medium text-[#192945]">
+            <div className="pl-[12px] text-[15px] font-medium text-r-neutral-title-1">
               {t('page.newAddress.metamask.how')}
             </div>
           </div>
-          <div className="relative rounded border border-[#7084FF] mt-14 mb-16">
-            <div className="absolute left-[9px] top-[-8px] bg-white text-[#7084FF] text-12 font-medium pl-2 pr-4">
+          <div className="rounded bg-rabby-blue-light1 mt-12">
+            <div className="p-8 text-r-blue-default text-12 font-normal leading-[16px]">
               {t('page.newAddress.metamask.tips')}
-            </div>
-            <div className="p-8 text-[#7084FF] text-12 font-normal leading-[16px]">
               {t('page.newAddress.metamask.tipsDesc')}
             </div>
           </div>
-
-          <div className="relative left-[-5px] mr-[-12px]">
-            <Timeline>
-              {stepList.map((step, i) => (
-                <Timeline.Item
-                  color="transparent"
-                  dot={
-                    <span className="text-13 font-medium text-[#192945]">
-                      {t('page.newAddress.metamask.step')}
-                      {i + 1}:
-                    </span>
-                  }
-                >
-                  <div
-                    className={clsx(
-                      'text-13 font-medium text-[#192945] leading-[18px]',
-                      i === 0 && 'ml-[-2px]'
-                    )}
-                  >
-                    {step}
-                  </div>
-                </Timeline.Item>
-              ))}
-            </Timeline>
-          </div>
         </div>
 
-        <div className="bg-white rounded-[6px] ">
-          <div className="border-b border-gray-divider py-[15px] px-[19px]">
-            <div className="text-15 font-medium text-[#192945]">
-              {t('page.newAddress.metamask.importSeedPhrase')}
+        <div className="bg-r-neutral-card-1 rounded-[6px] ">
+          <div className="flex flex-col items-center border-rabby-neutral-line py-[20px] px-[16px] pb-[24px]">
+            <div className="flex items-center mb-16">
+              <span className="text-[13px] font-medium text-r-blue-default mr-2">
+                {t('page.newAddress.metamask.step')}1:
+              </span>
+              <div className="text-[12px] leading-[18px] font-medium text-r-neutral-title1 whitespace-nowrap">
+                {stepList[0]}
+              </div>
             </div>
 
-            <div className="mt-[3px] text-12 text-[#3E495E]">
-              {t('page.newAddress.metamask.importSeedPhraseTips')}
+            <div
+              className={clsx(
+                'border border-transparent hover:border-rabby-blue-default hover:bg-rabby-blue-light1',
+                'w-[210px] h-[44px] cursor-pointer mt-4',
+                'flex justify-center items-center gap-[6px]',
+                'text-[13px] font-medium text-r-neutral-body',
+                'rounded-[6px] bg-r-neutral-card-2'
+              )}
+              onClick={() => {
+                openInTab('https://rabby.io/metamask-export');
+              }}
+            >
+              View export tutorial
             </div>
           </div>
 
-          {importList.map((e) => (
-            <Item
-              key={e.icon}
-              leftIcon={e.icon}
-              leftIconClassName="icon"
-              onClick={e.onClick}
-              py={15}
-            >
-              <div className="pl-[12px] text-13 font-medium text-[#192945]">
-                {e.content}
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={'100%'}
+            viewBox="0 0 360 2"
+            height={2}
+            fill="none"
+          >
+            <path
+              stroke="var(--r-neutral-line, #D3D8E0)"
+              strokeWidth={0.2}
+              d="M0 1h360"
+            />
+          </svg>
+
+          <div className="flex flex-col items-center border-rabby-neutral-line py-[20px] px-[16px] pb-[32px]">
+            <div className="flex items-center mb-16">
+              <span className="text-[13px] font-medium text-r-blue-default mr-2">
+                {t('page.newAddress.metamask.step')}2:{' '}
+              </span>
+              <div className="text-[12px] leading-[18px] font-medium text-r-neutral-title1 whitespace-nowrap">
+                {stepList[1]}
               </div>
-            </Item>
-          ))}
+            </div>
+
+            <div
+              className={clsx(
+                'border border-transparent hover:border-rabby-blue-default hover:bg-rabby-blue-light1',
+                'w-[210px] h-[44px] cursor-pointer mt-4',
+                'flex justify-center items-center gap-[6px]',
+                'text-[13px] font-medium text-r-neutral-body',
+                'rounded-[6px] bg-r-neutral-card-2'
+              )}
+              onClick={() => {
+                openInternalPageInTab('import/mnemonics');
+              }}
+            >
+              <RcIconMnemonics />
+              {t('page.newAddress.importSeedPhrase')}
+            </div>
+
+            <div
+              className={clsx(
+                'border border-transparent hover:border-rabby-blue-default hover:bg-rabby-blue-light1',
+                'w-[210px] h-[44px]  cursor-pointer mt-16',
+                'flex justify-center items-center gap-[6px]',
+                'text-[13px] font-medium text-r-neutral-body',
+                'rounded-[6px] bg-r-neutral-card-2'
+              )}
+              onClick={() => {
+                history.push('/import/key');
+              }}
+            >
+              <RcIconPrivatekey />
+              {t('page.newAddress.importPrivateKey')}
+            </div>
+          </div>
         </div>
       </div>
     </div>

@@ -8,6 +8,8 @@ import * as Sentry from '@sentry/browser';
 import { KEYRING_CLASS } from '@/constant';
 import { useRabbyDispatch } from '@/ui/store';
 import { useTranslation } from 'react-i18next';
+import { isFunction } from 'lodash';
+import { useMemoizedFn } from 'ahooks';
 
 export const sleep = (ms: number) =>
   new Promise((resolve) => setTimeout(resolve, ms));
@@ -40,7 +42,7 @@ export const fetchAccountsInfo = async (
         }
       }
 
-      let chains: Account['chains'];
+      let chains: Account['chains'] = [];
       try {
         chains = await wallet.openapi.usedChainList(account.address);
       } catch (e) {
@@ -59,11 +61,13 @@ export const fetchAccountsInfo = async (
       }
 
       // find firstTxTime
-      chains?.forEach((chain: any) => {
-        if (chain.born_at) {
-          firstTxTime = Math.min(firstTxTime ?? Infinity, chain.born_at);
-        }
-      });
+      if (isFunction(chains?.forEach)) {
+        chains?.forEach((chain: any) => {
+          if (chain.born_at) {
+            firstTxTime = Math.min(firstTxTime ?? Infinity, chain.born_at);
+          }
+        });
+      }
 
       const accountInfo: Account = {
         ...account,
@@ -156,11 +160,25 @@ const useManagerTab = () => {
   };
 };
 
-const useHiddenInfo = () => {
-  const [hiddenInfo, setHiddenInfo] = React.useState(true);
+const useSelectedAccounts = () => {
+  const [selectedAccounts, setSelectedAccounts] = React.useState<Account[]>([]);
+
+  const updateSelectedAccountAliasName = useMemoizedFn(
+    (address: string, aliasName: string) => {
+      setSelectedAccounts((accounts) => {
+        return accounts.map((account) => {
+          if (isSameAddress(account.address, address)) {
+            account.aliasName = aliasName;
+          }
+          return account;
+        });
+      });
+    }
+  );
   return {
-    hiddenInfo,
-    setHiddenInfo,
+    selectedAccounts,
+    setSelectedAccounts,
+    updateSelectedAccountAliasName,
   };
 };
 
@@ -204,12 +222,13 @@ export interface StateProviderProps {
   keyringId: number | null;
   keyring: string;
   brand?: string;
+  isLazyImport?: boolean;
 }
 
 export const HDManagerStateContext = React.createContext<
   ReturnType<typeof useGetCurrentAccounts> &
     ReturnType<typeof useManagerTab> &
-    ReturnType<typeof useHiddenInfo> &
+    ReturnType<typeof useSelectedAccounts> &
     ReturnType<typeof useTaskQueue> &
     StateProviderProps
 >({} as any);
@@ -218,16 +237,18 @@ export const HDManagerStateProvider: React.FC<StateProviderProps> = ({
   children,
   keyringId,
   keyring,
+  isLazyImport,
 }) => {
   return (
     <HDManagerStateContext.Provider
       value={{
         ...useGetCurrentAccounts({ keyringId, keyring }),
         ...useManagerTab(),
-        ...useHiddenInfo(),
+        ...useSelectedAccounts(),
         ...useTaskQueue({ keyring }),
         keyringId,
         keyring,
+        isLazyImport,
       }}
     >
       {children}

@@ -4,7 +4,6 @@ import { WalletControllerType } from '../WalletContext';
 import { PortfolioProject } from './types';
 import { DisplayedProject } from './project';
 import { getTokenHistoryPrice } from './price';
-import { isTestnet } from '@/utils/chain';
 import { TokenItem } from '@rabby-wallet/rabby-api/dist/types';
 
 export interface PortfolioItemToken extends TokenItem {
@@ -81,6 +80,9 @@ export const loadPortfolioSnapshot = (
   });
 };
 
+/**
+ * @deprecated
+ */
 export const loadTestnetPortfolioSnapshot = (
   userAddr: string,
   wallet: WalletControllerType

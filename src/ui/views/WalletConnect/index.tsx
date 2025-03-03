@@ -1,9 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { message } from 'antd';
 import { useHistory, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { DEFAULT_BRIDGE } from '@rabby-wallet/eth-walletconnect-keyring';
-import { useWallet, useWalletRequest } from 'ui/utils';
+import { getCurrentTab, useWallet, useWalletRequest } from 'ui/utils';
 import IconBack from 'ui/assets/icon-back.svg';
 import { ScanCopyQRCode } from 'ui/component';
 import eventBus from '@/eventBus';
@@ -12,12 +11,17 @@ import {
   EVENTS,
   WALLET_BRAND_CONTENT,
   WALLET_BRAND_CATEGORY,
+  KEYRING_CLASS,
 } from 'consts';
 import './style.less';
 import clsx from 'clsx';
 import IconWalletConnect from 'ui/assets/walletlogo/walletconnect.svg';
 import { useSessionStatus } from '@/ui/component/WalletConnect/useSessionStatus';
 import { useBrandNameHasWallet } from '@/ui/component/WalletConnect/useBrandNameHasWallet';
+import { getOriginFromUrl, safeJSONParse } from '@/utils';
+import { ConnectedSite } from '@/background/service/permission';
+import { findChainByEnum } from '@/utils/chain';
+import { useRepeatImportConfirm } from '@/ui/utils/useRepeatImportConfirm';
 
 const WalletConnectName = WALLET_BRAND_CONTENT['WALLETCONNECT']?.name;
 
@@ -29,7 +33,7 @@ const WalletConnectTemplate = () => {
   const [result, setResult] = useState('');
   const [walletconnectUri, setWalletconnectUri] = useState('');
   const [showURL, setShowURL] = useState(false);
-  const [bridgeURL, setBridgeURL] = useState(DEFAULT_BRIDGE);
+  const [bridgeURL, setBridgeURL] = useState('');
   const [brand, setBrand] = useState(location.state?.brand || {});
   const [ready, setReady] = useState(false);
   const { status: sessionStatus, currAccount } = useSessionStatus();
@@ -37,6 +41,16 @@ const WalletConnectTemplate = () => {
     Parameters<typeof run> | undefined
   >();
   const [curStashId, setCurStashId] = useState<number | null>();
+  const siteRef = React.useRef<ConnectedSite | null>(null);
+  const { show, contextHolder } = useRepeatImportConfirm();
+
+  const getCurrentSite = useCallback(async () => {
+    const tab = await getCurrentTab();
+    if (!tab.id || !tab.url) return;
+    const domain = getOriginFromUrl(tab.url);
+    const current = await wallet.getCurrentSite(tab.id, domain);
+    siteRef.current = current;
+  }, []);
 
   const [run, loading] = useWalletRequest(wallet.importWalletConnect, {
     onSuccess(accounts) {
@@ -53,57 +67,56 @@ const WalletConnectTemplate = () => {
       });
     },
     onError(err) {
-      if (!err?.message.includes('duplicate')) {
-        message.error(t(err?.message));
+      if (err.message?.includes?.('DuplicateAccountError')) {
+        const address = safeJSONParse(err.message)?.address;
+        show({
+          address,
+          type: KEYRING_CLASS.WALLETCONNECT,
+        });
+      } else {
+        message.error(t(err?.message as any));
+        handleImportByWalletconnect();
       }
-      handleImportByWalletconnect();
-      return;
     },
   });
 
   const handleRun = async (options: Parameters<typeof run>) => {
-    const [payload, brandName] = options;
-    const { account, peerMeta } = payload as any;
+    const [payload, brandName, account] = options as any;
+    const {
+      peer: { metadata },
+    } = payload as any;
 
-    options[0] = account;
+    options[0] = account.address;
     if (brandName === WALLET_BRAND_CONTENT['WALLETCONNECT'].brand) {
-      if (peerMeta?.name) {
+      if (metadata?.name) {
         options[1] = currAccount!.brandName;
-        options[4] = peerMeta.name;
-        options[5] = peerMeta.icons?.[0];
+        options[4] = metadata.name;
+        options[5] = metadata.icons?.[0];
       }
     }
     run(...options);
   };
 
   const handleImportByWalletconnect = async () => {
-    const { uri, stashId } = await wallet.initWalletConnect(
+    const chain = findChainByEnum(siteRef.current?.chain);
+    const { stashId } = await wallet.initWalletConnect(
       brand.brand,
-      curStashId
+      curStashId,
+      chain?.id
     );
     setCurStashId(stashId);
-    setWalletconnectUri(uri);
-    // await wallet.setPageStateCache({
-    //   path: '/import/wallet-connect',
-    //   params: {},
-    //   states: {
-    //     uri,
-    //     stashId,
-    //     brand,
-    //     bridgeURL,
-    //   },
-    // });
+
     eventBus.removeAllEventListeners(EVENTS.WALLETCONNECT.STATUS_CHANGED);
     eventBus.addEventListener(
       EVENTS.WALLETCONNECT.STATUS_CHANGED,
-      ({ status, payload }) => {
+      ({ status, account, payload }) => {
         switch (status) {
           case WALLETCONNECT_STATUS_MAP.CONNECTED:
-            setResult(payload.account);
+            setResult(account.address);
             setRunParams([
               payload,
               brand.brand,
-              bridgeURL,
+              account,
               stashId === null ? undefined : stashId,
             ]);
             break;
@@ -175,28 +188,10 @@ const WalletConnectTemplate = () => {
   }, [sessionStatus]);
 
   const init = async () => {
-    // const cache = await wallet.getPageStateCache();
-    // if (cache && cache.path === history.location.pathname) {
-    //   const { states } = cache;
-    //   if (states.uri) setWalletconnectUri(states.uri);
-    //   if (states.brand) {
-    //     setBrand(states.brand);
-    //   }
-    //   if (states.data) {
-    //     setRunParams([
-    //       states.data.payload,
-    //       states.brand.brand,
-    //       states.bridgeURL,
-    //       states.stashId,
-    //     ]);
-    //   }
-    //   if (states.bridgeURL && states.bridgeURL !== bridgeURL) {
-    //     setBridgeURL(states.bridgeURL);
-    //   }
-    // } else {
-    //   handleImportByWalletconnect();
-    // }
-
+    eventBus.addEventListener(EVENTS.WALLETCONNECT.INITED, ({ uri }) => {
+      setWalletconnectUri(uri);
+    });
+    await getCurrentSite();
     handleImportByWalletconnect();
     setReady(true);
   };
@@ -213,7 +208,8 @@ const WalletConnectTemplate = () => {
 
   return (
     <div className="wallet-connect pb-0">
-      <div className="create-new-header create-password-header h-[180px] py-[20px]">
+      {contextHolder}
+      <div className="create-new-header create-password-header h-[180px] py-[20px] dark:bg-r-blue-disable">
         <img
           src={IconBack}
           className="icon-back mb-0 relative z-10"
@@ -242,9 +238,6 @@ const WalletConnectTemplate = () => {
         changeShowURL={setShowURL}
         qrcodeURL={walletconnectUri}
         refreshFun={handleRefresh}
-        bridgeURL={bridgeURL}
-        onBridgeChange={handleBridgeChange}
-        defaultBridge={DEFAULT_BRIDGE}
         canChangeBridge={false}
         brandName={brandName}
       />

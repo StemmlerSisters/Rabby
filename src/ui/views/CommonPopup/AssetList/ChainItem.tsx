@@ -42,14 +42,14 @@ export const ChainItem: React.FC<Props> = ({
         />
       </TooltipWithMagnetArrow>
       <span
-        className={clsx('text-13 font-medium text-gray-title', {
+        className={clsx('text-13 font-medium text-r-neutral-title-1', {
           'opacity-30': inactive,
         })}
       >
         ${currentBalance}
       </span>
       <span
-        className={clsx('text-12 text-black', {
+        className={clsx('text-12 text-r-neutral-foot', {
           'opacity-30': inactive,
         })}
       >
@@ -58,3 +58,10 @@ export const ChainItem: React.FC<Props> = ({
     </div>
   );
 };
+
+export function sortChainWithValueDesc(
+  a: ChainItemType | DisplayChainWithWhiteLogo,
+  b: ChainItemType | DisplayChainWithWhiteLogo
+) {
+  return b.usd_value - a.usd_value;
+}

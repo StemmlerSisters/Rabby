@@ -4,9 +4,10 @@ import { AbstractPortfolio } from 'ui/utils/portfolio/types';
 import { DisplayedProject } from 'ui/utils/portfolio/project';
 import { IconWithChain } from '@/ui/component/TokenWithChain';
 import PortfolioTemplate from './ProtocolTemplates';
-import { ReactComponent as IconDropdown } from '@/ui/assets/dashboard/dropdown.svg';
+import { ReactComponent as RcIconDropdown } from '@/ui/assets/dashboard/dropdown.svg';
 import clsx from 'clsx';
-import { useCommonPopupView } from '@/ui/utils';
+import { openInTab, useCommonPopupView } from '@/ui/utils';
+import { ReactComponent as RcOpenExternalCC } from '@/ui/assets/open-external-cc.svg';
 
 const TemplateDict = {
   common: PortfolioTemplate.Common,
@@ -48,7 +49,7 @@ const PoolItem = ({ item }: { item: AbstractPortfolio }) => {
 };
 
 const ProtocolItemWrapper = styled.div`
-  background: #f5f6fa;
+  background: var(--r-neutral-card-2, #f2f4f7);
   margin-bottom: 12px;
   border-radius: 6px;
 
@@ -59,19 +60,18 @@ const ProtocolItemWrapper = styled.div`
     cursor: pointer;
 
     .name {
-      flex: 1;
+      /* flex: 1; */
       font-weight: 500;
       font-size: 13px;
       line-height: 15px;
-      color: #13141a;
-      margin-left: 8px;
+      color: var(--r-neutral-title-1, #192945);
     }
     .net-worth {
       font-weight: 500;
       font-size: 13px;
       line-height: 15px;
       text-align: right;
-      color: #13141a;
+      color: var(--r-neutral-title-1, #192945);
     }
   }
 `;
@@ -119,6 +119,7 @@ const ProtocolItem = ({
       <div>
         <div
           className={clsx(
+            'flex items-center justify-start',
             'title border border-solid border-transparent rounded-[6px]',
             'hover:border-blue-light'
           )}
@@ -131,13 +132,26 @@ const ProtocolItem = ({
             height="24px"
             isShowChainTooltip={true}
           />
-          <span className="name">{protocol.name}</span>
-          <span className="net-worth">{protocol._netWorth}</span>
-          <IconDropdown
-            className={clsx('ml-8', {
-              'transform rotate-180': isExpand,
-            })}
-          />
+          <div
+            className="ml-[8px] flex items-center border-b-[1px] border-b-solid border-transparent hover:border-b-rabby-neutral-foot"
+            onClick={(evt) => {
+              evt.stopPropagation();
+              openInTab(protocol.site_url, false);
+            }}
+          >
+            <span className="name inline-flex items-center">
+              {protocol.name}
+            </span>
+            <RcOpenExternalCC className="ml-[4px] w-[12px] h-[12px] text-r-neutral-foot" />
+          </div>
+          <div className="flex items-center justify-end flex-1">
+            <span className="net-worth">{protocol._netWorth}</span>
+            <RcIconDropdown
+              className={clsx('ml-8', {
+                'transform rotate-180': isExpand,
+              })}
+            />
+          </div>
         </div>
         {isExpand &&
           protocol._portfolios.map((portfolio) => (

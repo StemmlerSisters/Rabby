@@ -1,22 +1,20 @@
 import { ConnectedSite } from '@/background/service/permission';
-import { CHAINS } from '@/constant';
 import { FallbackSiteLogo } from '@/ui/component';
-import clsx from 'clsx';
-import React, { forwardRef, memo, useMemo } from 'react';
-import IconPinned from 'ui/assets/icon-pinned.svg';
-import IconPinnedFill from 'ui/assets/icon-pinned-fill.svg';
-import { useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import IconDisconnect from 'ui/assets/icon-disconnect.svg';
-import { findChainByEnum } from '@/utils/chain';
+import ThemeIcon from '@/ui/component/ThemeMode/ThemeIcon';
 import { TooltipWithMagnetArrow } from '@/ui/component/Tooltip/TooltipWithMagnetArrow';
+import { findChainByEnum } from '@/utils/chain';
+import clsx from 'clsx';
+import React, { forwardRef, memo } from 'react';
+import { ReactComponent as RcIconDisconnect } from 'ui/assets/icon-disconnect.svg';
+import { ReactComponent as RcIconPinned } from 'ui/assets/icon-pinned.svg';
+import { ReactComponent as RcIconPinnedFill } from 'ui/assets/icon-pinned-fill.svg';
 
 interface ConnectionItemProps {
   className?: string;
   item: ConnectedSite;
   onClick?(): void;
-  onFavoriteChange?(value: boolean): void;
   onRemove?(origin: string): void;
+  onPin?(item: ConnectedSite): void;
 }
 
 export const Item = memo(
@@ -25,8 +23,8 @@ export const Item = memo(
       {
         item,
         onClick,
-        onFavoriteChange,
         onRemove,
+        onPin,
         className,
         ...rest
       }: ConnectionItemProps & Record<string, any>,
@@ -40,24 +38,13 @@ export const Item = memo(
           onClick={onClick}
           {...rest}
         >
-          <img
-            className="icon-close"
-            src={IconDisconnect}
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (onRemove) {
-                onRemove(item.origin);
-              }
-            }}
-          />
           <div className="logo cursor-pointer">
             <FallbackSiteLogo
               url={item.icon}
               origin={item.origin}
-              width="28px"
+              width="24px"
               style={{
-                borderRadius: '4px',
+                borderRadius: '50%',
               }}
             />
             <TooltipWithMagnetArrow
@@ -71,19 +58,35 @@ export const Item = memo(
               />
             </TooltipWithMagnetArrow>
           </div>
-          <span className="item-content">{item.origin}</span>
+          <div className="flex items-center gap-[4px] min-w-0">
+            <div className="item-content flex-1 truncate">{item.origin}</div>
+            <div
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onPin?.(item);
+              }}
+            >
+              <ThemeIcon
+                src={item.isTop ? RcIconPinnedFill : RcIconPinned}
+                className={clsx('pin-website', item.isTop && 'is-active')}
+              />
+            </div>
+          </div>
           <div
             className="item-extra"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              onFavoriteChange && onFavoriteChange(!item.isTop);
+              if (onRemove) {
+                onRemove(item.origin);
+              }
             }}
           >
-            <img
-              src={item.isTop ? IconPinnedFill : IconPinned}
-              className={clsx('pin-website', item.isTop && 'is-active')}
-              alt=""
+            <ThemeIcon
+              className="icon-close"
+              src={RcIconDisconnect}
+              viewBox="0 0 16 16"
             />
           </div>
         </div>
@@ -91,34 +94,3 @@ export const Item = memo(
     }
   )
 );
-
-export const ConnectionItem = memo((props: ConnectionItemProps) => {
-  const { item, className } = props;
-  const {
-    attributes,
-    setNodeRef,
-    transform,
-    transition,
-    listeners,
-    isDragging,
-  } = useSortable({
-    id: item.origin,
-  });
-  const style = useMemo(
-    () => ({
-      transform: CSS.Transform.toString(transform),
-      transition: isDragging ? 'none' : transition,
-    }),
-    [transform, transition, isDragging]
-  );
-  return (
-    <Item
-      className={clsx(className, isDragging && 'is-dragging')}
-      ref={setNodeRef}
-      {...attributes}
-      style={style}
-      {...listeners}
-      {...props}
-    ></Item>
-  );
-});

@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Drawer, Button } from 'antd';
 import BN from 'bignumber.js';
 import { useTranslation } from 'react-i18next';
 import FieldCheckbox from 'ui/component/FieldCheckbox';
 import AddressViewer from 'ui/component/AddressViewer';
 import { Account } from 'background/service/preference';
+import { pickKeyringThemeIcon } from '@/utils/account';
 import { useWallet, isSameAddress, formatTokenAmount } from 'ui/utils';
-import {
-  KEYRING_TYPE,
-  KEYRING_ICONS,
-  WALLET_BRAND_CONTENT,
-  CHAINS,
-} from 'consts';
+import { useThemeMode } from '@/ui/hooks/usePreference';
+import { KEYRING_TYPE, WALLET_BRAND_CONTENT, CHAINS } from 'consts';
 import './style.less';
 import { CommonSignal } from '../ConnectStatus/CommonSignal';
 import { useWalletConnectIcon } from '../WalletConnect/useWalletConnectIcon';
+import { findChain } from '@/utils/chain';
+import { ReactComponent as RcIconEmpty } from '@/ui/assets/empty-cc.svg';
+import clsx from 'clsx';
 
 interface AccountSelectDrawerProps {
   onChange(account: Account): void;
@@ -47,18 +47,25 @@ export const AccountItem = ({
 
   const init = async (networkId) => {
     const name = (await wallet.getAlianName(account.address))!;
-    const chain = Object.values(CHAINS).find(
-      (item) => item.id.toString() === networkId + ''
-    )!;
+
+    const chain = findChain({
+      id: +networkId,
+    });
+    if (!chain) {
+      return;
+    }
     setNativeTokenSymbol(chain.nativeTokenSymbol);
     setAlianName(name);
   };
 
   const fetchNativeTokenBalance = async () => {
-    const chain = Object.values(CHAINS).find(
-      (item) => item.id.toString() === networkId + ''
-    )!;
-    const balanceInWei = await wallet.requestETHRpc(
+    const chain = findChain({
+      id: +networkId,
+    });
+    if (!chain) {
+      return;
+    }
+    const balanceInWei = await wallet.requestETHRpc<any>(
       {
         method: 'eth_getBalance',
         params: [account.address, 'latest'],
@@ -80,6 +87,19 @@ export const AccountItem = ({
 
   const brandIcon = useWalletConnectIcon(account);
 
+  const { isDarkTheme } = useThemeMode();
+
+  const addressTypeIcon = useMemo(() => {
+    const brandName = account.brandName;
+    return (
+      brandIcon ||
+      pickKeyringThemeIcon(brandName as any, {
+        needLightVersion: isDarkTheme,
+      }) ||
+      WALLET_BRAND_CONTENT?.[brandName]?.image
+    );
+  }, [account, brandIcon, isDarkTheme]);
+
   return (
     <FieldCheckbox
       className="item"
@@ -88,15 +108,7 @@ export const AccountItem = ({
       checked={checked}
     >
       <div className="icon icon-keyring relative">
-        <img
-          width={24}
-          height={24}
-          src={
-            brandIcon ||
-            WALLET_BRAND_CONTENT[account.brandName]?.image ||
-            KEYRING_ICONS[account.type]
-          }
-        />
+        <img width={24} height={24} src={addressTypeIcon} />
         <CommonSignal
           type={account.type}
           brandName={account.brandName}
@@ -109,7 +121,7 @@ export const AccountItem = ({
           <p className="alian-name">{alianName}</p>
           <AddressViewer address={account.address} showArrow={false} />
         </div>
-        <div className="text-12 text-gray-light native-token-balance">
+        <div className="text-12 text-r-neutral-body native-token-balance">
           {nativeTokenBalance !== null &&
             `${formatTokenAmount(nativeTokenBalance)} ${nativeTokenSymbol}`}
         </div>
@@ -159,7 +171,7 @@ const AccountSelectDrawer = ({
   return (
     <Drawer
       height={440}
-      className="account-select"
+      className="account-select is-support-darkmode"
       visible={visible}
       placement="bottom"
       maskClosable
@@ -170,6 +182,7 @@ const AccountSelectDrawer = ({
         {accounts.map((account) => (
           <AccountItem
             account={account}
+            key={`${account.type}-${account.address}`}
             onSelect={handleSelectAccount}
             networkId={networkId}
             checked={
@@ -180,11 +193,32 @@ const AccountSelectDrawer = ({
             }
           />
         ))}
+        {!accounts?.length ? (
+          <div className="flex flex-col items-center justify-center h-full text-r-neutral-foot">
+            <div className="w-[32px] h-[32px] mb-[16px]">
+              <RcIconEmpty />
+            </div>
+            <div className="text-[14px] leading-[24px]">
+              No available address
+            </div>
+          </div>
+        ) : null}
       </div>
       <div className="footer">
-        <Button type="primary" onClick={onCancel}>
+        <Button
+          onClick={onCancel}
+          type="ghost"
+          className={clsx(
+            'text-r-blue-default',
+            'border-blue-light',
+            'hover:bg-[#8697FF1A] active:bg-[#0000001A]',
+            'disabled:bg-transparent disabled:opacity-40 disabled:hover:bg-transparent',
+            'before:content-none'
+          )}
+        >
           {t('component.AccountSelectDrawer.btn.cancel')}
         </Button>
+
         <Button
           type="primary"
           onClick={() => checkedAccount && onChange(checkedAccount)}

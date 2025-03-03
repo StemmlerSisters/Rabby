@@ -14,14 +14,25 @@ import IconPen from 'ui/assets/editpen.svg';
 import './style.less';
 import { copyAddress } from '@/ui/utils/clipboard';
 import { useForm } from 'antd/lib/form/Form';
-import { KEYRING_CLASS, KEYRING_ICONS, WALLET_BRAND_CONTENT } from '@/constant';
+import {
+  HARDWARE_KEYRING_TYPES,
+  KEYRING_CLASS,
+  KEYRING_ICONS,
+  WALLET_BRAND_CONTENT,
+} from '@/constant';
 import { connectStore } from '@/ui/store';
 import { SessionStatusBar } from '@/ui/component/WalletConnect/SessionStatusBar';
 import { LedgerStatusBar } from '@/ui/component/ConnectStatus/LedgerStatusBar';
 import { GridPlusStatusBar } from '@/ui/component/ConnectStatus/GridPlusStatusBar';
+import { KeystoneStatusBar } from '@/ui/component/ConnectStatus/KeystoneStatusBar';
 import { SeedPhraseBar } from './SeedPhraseBar';
 import { GnonisSafeInfo } from './GnosisSafeInfo';
 import { CoboArgusInfo } from './CoboArugsInfo';
+import ThemeIcon from '@/ui/component/ThemeMode/ThemeIcon';
+import { useThemeMode } from '@/ui/hooks/usePreference';
+import { pickKeyringThemeIcon } from '@/utils/account';
+import clsx from 'clsx';
+import { HardwareBar } from './HardwareBar';
 
 type Props = {
   address: string;
@@ -35,7 +46,7 @@ const AddressInfo1 = ({ address, type, brandName, source }: Props) => {
   const [balance] = useBalance(address);
   const [form] = useForm();
   const inputRef = useRef<Input>(null);
-  const accountInfo = useAccountInfo(type, address);
+  const accountInfo = useAccountInfo(type, address, brandName);
   const { t } = useTranslation();
 
   const isGnosis = type === KEYRING_CLASS.GNOSIS;
@@ -50,7 +61,9 @@ const AddressInfo1 = ({ address, type, brandName, source }: Props) => {
     }, 50);
     const { destroy } = Popup.info({
       title: t('page.addressDetail.edit-memo-title'),
+      isSupportDarkMode: true,
       height: 215,
+      isNew: true,
       content: (
         <div className="pt-[4px]">
           <Form
@@ -81,7 +94,7 @@ const AddressInfo1 = ({ address, type, brandName, source }: Props) => {
             >
               <Input
                 ref={inputRef}
-                className="popup-input h-[48px]"
+                className="popup-input h-[48px] bg-r-neutral-card-1"
                 size="large"
                 placeholder={t('page.addressDetail.please-input-address-note')}
                 autoFocus
@@ -91,14 +104,28 @@ const AddressInfo1 = ({ address, type, brandName, source }: Props) => {
                 maxLength={50}
               ></Input>
             </Form.Item>
-            <div className="text-center">
+            <div className="text-center flex gap-x-16">
+              <Button
+                size="large"
+                type="ghost"
+                onClick={() => destroy()}
+                className={clsx(
+                  'w-[200px]',
+                  'text-blue-light',
+                  'border-blue-light',
+                  'hover:bg-[#8697FF1A] active:bg-[#0000001A]',
+                  'before:content-none'
+                )}
+              >
+                {t('global.Cancel')}
+              </Button>
               <Button
                 type="primary"
                 size="large"
                 className="w-[200px]"
                 htmlType="submit"
               >
-                {t('global.Confirm')}
+                {t('global.confirm')}
               </Button>
             </div>
           </Form>
@@ -106,6 +133,8 @@ const AddressInfo1 = ({ address, type, brandName, source }: Props) => {
       ),
     });
   };
+
+  const { isDarkTheme } = useThemeMode();
 
   return (
     <div className="rabby-list">
@@ -186,10 +215,12 @@ const AddressInfo1 = ({ address, type, brandName, source }: Props) => {
           <div className="rabby-list-item-label">
             {t('page.addressDetail.source')}
           </div>
-          <div className="rabby-list-item-extra flex gap-[4px]">
-            <img
+          <div className="rabby-list-item-extra flex gap-[4px] max-w-full">
+            <ThemeIcon
               className="w-[16px] h-[16px]"
               src={
+                pickKeyringThemeIcon(type as any, isDarkTheme) ||
+                pickKeyringThemeIcon(brandName as any, isDarkTheme) ||
                 KEYRING_ICONS[type] ||
                 WALLET_BRAND_CONTENT[brandName as string]?.image
               }
@@ -200,25 +231,33 @@ const AddressInfo1 = ({ address, type, brandName, source }: Props) => {
         {type === KEYRING_CLASS.WALLETCONNECT && (
           <div className="pb-[20px]">
             <SessionStatusBar
-              className="text-gray-subTitle bg-gray-bg connect-status"
+              className="text-r-neutral-body bg-r-neutral-bg2 connect-status"
               address={address}
               brandName={brandName}
+              type={type}
             />
           </div>
         )}
-        {type === KEYRING_CLASS.HARDWARE.LEDGER && (
+        {Object.values(HARDWARE_KEYRING_TYPES).find(
+          (item) => item.type === type
+        ) && (
           <div className="pb-[20px]">
-            <LedgerStatusBar className="text-gray-subTitle bg-gray-bg connect-status" />
-          </div>
-        )}
-        {type === KEYRING_CLASS.HARDWARE.GRIDPLUS && (
-          <div className="pb-[20px]">
-            <GridPlusStatusBar className="text-gray-subTitle bg-gray-bg connect-status" />
+            <HardwareBar address={address} type={type} brand={brandName} />
           </div>
         )}
         {type === KEYRING_CLASS.MNEMONIC && (
           <div className="pb-[20px]">
             <SeedPhraseBar address={address} />
+          </div>
+        )}
+        {type === KEYRING_CLASS.Coinbase && (
+          <div className="pb-[20px]">
+            <SessionStatusBar
+              className="text-r-neutral-body bg-r-neutral-bg2 connect-status"
+              address={address}
+              brandName={KEYRING_CLASS.Coinbase}
+              type={KEYRING_CLASS.Coinbase}
+            />
           </div>
         )}
       </div>

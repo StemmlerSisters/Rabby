@@ -1,47 +1,66 @@
-import { groupBy } from 'lodash';
-import 'reflect-metadata';
-import * as Sentry from '@sentry/browser';
-import { browser } from 'webextension-polyfill-ts';
-import { ethErrors } from 'eth-rpc-errors';
-import { WalletController } from 'background/controller/wallet';
-import { Message } from '@/utils';
-import { CHAINS, EVENTS, KEYRING_CATEGORY_MAP } from 'consts';
-import { storage } from './webapi';
-import {
-  permissionService,
-  preferenceService,
-  sessionService,
-  keyringService,
-  openapiService,
-  transactionWatchService,
-  pageStateCacheService,
-  transactionHistoryService,
-  contactBookService,
-  signTextHistoryService,
-  whitelistService,
-  swapService,
-  RPCService,
-  securityEngineService,
-} from './service';
-import { providerController, walletController } from './controller';
-import i18n from './service/i18n';
-import { getOriginFromUrl } from '@/utils';
-import rpcCache from './utils/rpcCache';
 import eventBus from '@/eventBus';
 import migrateData from '@/migrations';
-import stats from '@/stats';
-import createSubscription from './controller/provider/subscriptionManager';
-import buildinProvider from 'background/utils/buildinProvider';
+import { getOriginFromUrl, transformFunctionsToZero } from '@/utils';
+import { appIsDev, getSentryEnv, isManifestV3 } from '@/utils/env';
+import { matomoRequestEvent } from '@/utils/matomo-request';
+import { Message, sendReadyMessageToTabs } from '@/utils/message';
+import Safe from '@rabby-wallet/gnosis-sdk';
+import * as Sentry from '@sentry/browser';
+import fetchAdapter from '@vespaiach/axios-fetch-adapter';
+import { WalletController } from 'background/controller/wallet';
+import {
+  EVENTS,
+  EVENTS_IN_BG,
+  IS_FIREFOX,
+  KEYRING_CATEGORY_MAP,
+  KEYRING_TYPE,
+} from 'consts';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
-import { setPopupIcon, wait } from './utils';
-import { getSentryEnv } from '@/utils/env';
-import { matomoRequestEvent } from '@/utils/matomo-request';
+import { ethErrors } from 'eth-rpc-errors';
+import { groupBy, isNull } from 'lodash';
+import 'reflect-metadata';
+import browser from 'webextension-polyfill';
+import { providerController, walletController } from './controller';
+import createSubscription from './controller/provider/subscriptionManager';
+import {
+  bridgeService,
+  contactBookService,
+  gasAccountService,
+  HDKeyRingLastAddAddrTimeService,
+  keyringService,
+  openapiService,
+  pageStateCacheService,
+  permissionService,
+  preferenceService,
+  RabbyPointsService,
+  RPCService,
+  securityEngineService,
+  sessionService,
+  signTextHistoryService,
+  swapService,
+  transactionBroadcastWatchService,
+  transactionHistoryService,
+  transactionWatchService,
+  uninstalledService,
+  whitelistService,
+  OfflineChainsService,
+} from './service';
+import { customTestnetService } from './service/customTestnet';
+import { GasAccountServiceStore } from './service/gasAccount';
 import { testnetOpenapiService } from './service/openapi';
+import { syncChainService } from './service/syncChain';
+import { userGuideService } from './service/userGuide';
+import { isSameAddress } from './utils';
+import rpcCache from './utils/rpcCache';
+import { storage } from './webapi';
+import { metamaskModeService } from './service/metamaskModeService';
+import { ga4 } from '@/utils/ga4';
+import { ALARMS_USER_ENABLE } from './utils/alarms';
+
+Safe.adapter = fetchAdapter as any;
 
 dayjs.extend(utc);
-
-setPopupIcon('default');
 
 const { PortMessage } = Message;
 
@@ -49,33 +68,19 @@ let appStoreLoaded = false;
 
 Sentry.init({
   dsn:
-    'https://e871ee64a51b4e8c91ea5fa50b67be6b@o460488.ingest.sentry.io/5831390',
+    'https://a864fbae7ba680ce68816ff1f6ef2c4e@o4507018303438848.ingest.us.sentry.io/4507018389749760',
   release: process.env.release,
   environment: getSentryEnv(),
   ignoreErrors: [
     'Transport error: {"event":"transport_error","params":["Websocket connection failed"]}',
     'Failed to fetch',
     'TransportOpenUserCancelled',
+    'Non-Error promise rejection captured with keys: message, stack',
   ],
 });
 
-function initAppMeta() {
-  const head = document.querySelector('head');
-  const icon = document.createElement('link');
-  icon.href = 'https://rabby.io/assets/images/logo-128.png';
-  icon.rel = 'icon';
-  head?.appendChild(icon);
-  const name = document.createElement('meta');
-  name.name = 'name';
-  name.content = 'Rabby';
-  head?.appendChild(name);
-  const description = document.createElement('meta');
-  description.name = 'description';
-  description.content = i18n.t('global.appDescription');
-  head?.appendChild(description);
-}
-
 async function restoreAppState() {
+  await onInstall();
   const keyringState = await storage.get('keyringState');
   keyringService.loadStore(keyringState);
   keyringService.store.subscribe((value) => storage.set('keyringState', value));
@@ -85,9 +90,11 @@ async function restoreAppState() {
   // Init keyring and openapi first since this two service will not be migrated
   await migrateData();
 
+  await customTestnetService.init();
   await permissionService.init();
   await preferenceService.init();
   await transactionWatchService.init();
+  await transactionBroadcastWatchService.init();
   await pageStateCacheService.init();
   await transactionHistoryService.init();
   await contactBookService.init();
@@ -96,20 +103,74 @@ async function restoreAppState() {
   await swapService.init();
   await RPCService.init();
   await securityEngineService.init();
+  await RabbyPointsService.init();
+  await HDKeyRingLastAddAddrTimeService.init();
+  await bridgeService.init();
+  await gasAccountService.init();
+  await uninstalledService.init();
+  await metamaskModeService.init();
+  await OfflineChainsService.init();
+
+  await walletController.tryUnlock();
 
   rpcCache.start();
 
   appStoreLoaded = true;
 
+  syncChainService.roll();
   transactionWatchService.roll();
-  initAppMeta();
-  startEnableUser();
+  transactionBroadcastWatchService.roll();
+  walletController.syncMainnetChainList();
+
+  // check if user has enabled the extension
+  if (isManifestV3) {
+    browser.alarms.create(ALARMS_USER_ENABLE, {
+      when: Date.now(),
+      periodInMinutes: 60,
+    });
+  } else {
+    setInterval(() => {
+      startEnableUser();
+    }, 1 * 60 * 60 * 1000);
+  }
+
+  if (!keyringService.isBooted()) {
+    userGuideService.init();
+  }
+
+  eventBus.addEventListener(EVENTS_IN_BG.ON_TX_COMPLETED, ({ address }) => {
+    if (!address) return;
+
+    walletController.forceExpireInMemoryAddressBalance(address);
+    walletController.forceExpireInMemoryNetCurve(address);
+  });
+
+  if (appIsDev) {
+    globalThis._forceExpireBalanceAboutData = (address: string) => {
+      eventBus.emit(EVENTS_IN_BG.ON_TX_COMPLETED, { address });
+    };
+  }
+  await sendReadyMessageToTabs();
+
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.type === 'getBackgroundReady') {
+      sendResponse({
+        data: {
+          ready: true,
+        },
+      });
+    }
+  });
+
+  uninstalledService.setUninstalled();
 }
 
 restoreAppState();
 {
   let interval: NodeJS.Timeout | null;
   keyringService.on('unlock', () => {
+    walletController.syncMainnetChainList();
+
     if (interval) {
       clearInterval(interval);
     }
@@ -117,6 +178,18 @@ restoreAppState();
       const time = preferenceService.getSendLogTime();
       if (dayjs(time).utc().isSame(dayjs().utc(), 'day')) {
         return;
+      }
+      const customTestnetLength = customTestnetService.getList()?.length;
+      if (customTestnetLength) {
+        matomoRequestEvent({
+          category: 'Custom Network',
+          action: 'Custom Network Status',
+          value: customTestnetLength,
+        });
+
+        ga4.fireEvent('Has_CustomNetwork', {
+          event_category: 'Custom Network',
+        });
       }
       const chains = preferenceService.getSavedChains();
       matomoRequestEvent({
@@ -147,23 +220,15 @@ restoreAppState();
           label: [group[0].action, group[0].label, group.length].join('|'),
           value: group.length,
         });
+
+        ga4.fireEvent(`${group[0].category}_${group[0].label}`, {
+          event_category: 'UserAddress',
+        });
       });
       preferenceService.updateSendLogTime(Date.now());
     };
     sendEvent();
     interval = setInterval(sendEvent, 5 * 60 * 1000);
-    // TODO: remove me after 2022.12.31
-    const arrangeOldContactAndAlias = async () => {
-      const addresses = await keyringService.getAllAdresses();
-      const contactMap = contactBookService.getContactsByMap();
-      addresses.forEach(({ address }) => {
-        const item = contactMap[address];
-        if (item && item.isContact && !item.isAlias) {
-          contactBookService.addAlias({ name: item.name, address });
-        }
-      });
-    };
-    arrangeOldContactAndAlias();
   });
 
   keyringService.on('lock', () => {
@@ -172,7 +237,49 @@ restoreAppState();
       interval = null;
     }
   });
+
+  keyringService.on(
+    'removedAccount',
+    async (address: string, type: string, brand?: string) => {
+      if (type !== KEYRING_TYPE.WatchAddressKeyring) {
+        const restAddresses = await keyringService.getAllAdresses();
+        const gasAccount = gasAccountService.getGasAccountData() as GasAccountServiceStore;
+        if (!gasAccount?.account?.address) return;
+        // check if there is another type address in wallet
+        const stillHasAddr = restAddresses.some((item) => {
+          return (
+            isSameAddress(item.address, gasAccount.account!.address) &&
+            item.type !== KEYRING_TYPE.WatchAddressKeyring
+          );
+        });
+        if (
+          !stillHasAddr &&
+          isSameAddress(address, gasAccount.account.address)
+        ) {
+          // if there is no another type address then reset signature
+          gasAccountService.setGasAccountSig();
+          eventBus.emit(EVENTS.broadcastToUI, {
+            method: EVENTS.GAS_ACCOUNT.LOG_OUT,
+          });
+        }
+      }
+    }
+  );
 }
+
+keyringService.on('resetPassword', async () => {
+  const gasAccount = gasAccountService.getGasAccountData() as GasAccountServiceStore;
+
+  if (
+    gasAccount?.account?.type === KEYRING_TYPE.SimpleKeyring ||
+    gasAccount?.account?.type === KEYRING_TYPE.HdKeyring
+  ) {
+    gasAccountService.setGasAccountSig();
+    eventBus.emit(EVENTS.broadcastToUI, {
+      method: EVENTS.GAS_ACCOUNT.LOG_OUT,
+    });
+  }
+});
 
 // for page provider
 browser.runtime.onConnect.addListener((port) => {
@@ -207,7 +314,25 @@ browser.runtime.onConnect.addListener((port) => {
           case 'controller':
           default:
             if (data.method) {
-              return walletController[data.method].apply(null, data.params);
+              const res = walletController[data.method].apply(
+                null,
+                data.params
+              );
+              if (!IS_FIREFOX) {
+                return res;
+              }
+              if (typeof res?.then === 'function') {
+                return res.then((x) => {
+                  if (typeof x !== 'object' || isNull(x)) {
+                    return x;
+                  }
+                  return transformFunctionsToZero(x);
+                });
+              }
+              if (typeof res !== 'object' || isNull(res)) {
+                return res;
+              }
+              return transformFunctionsToZero(res);
             }
         }
       }
@@ -231,8 +356,14 @@ browser.runtime.onConnect.addListener((port) => {
       });
     }
 
+    browser.runtime.sendMessage({
+      type: 'pageOpened',
+    });
     eventBus.addEventListener(EVENTS.broadcastToUI, boardcastCallback);
     port.onDisconnect.addListener(() => {
+      browser.runtime.sendMessage({
+        type: 'pageClosed',
+      });
       eventBus.removeEventListener(EVENTS.broadcastToUI, boardcastCallback);
     });
 
@@ -244,8 +375,7 @@ browser.runtime.onConnect.addListener((port) => {
   }
 
   const pm = new PortMessage(port);
-  const provider = buildinProvider.currentProvider;
-  const subscriptionManager = createSubscription(provider);
+  const subscriptionManager = createSubscription(origin);
 
   subscriptionManager.events.on('notification', (message) => {
     pm.send('message', {
@@ -273,15 +403,22 @@ browser.runtime.onConnect.addListener((port) => {
     const origin = getOriginFromUrl(port.sender.url);
     const session = sessionService.getOrCreateSession(sessionId, origin);
     const req = { data, session, origin };
+    if (!session?.origin) {
+      const tabInfo = await browser.tabs.get(sessionId);
+      // prevent tabCheckin not triggered, re-fetch tab info when session have no info at all
+      session?.setProp({
+        origin,
+        name: tabInfo.title || '',
+        icon: tabInfo.favIconUrl || '',
+      });
+    }
     // for background push to respective page
     req.session!.setPortMessage(pm);
 
-    if (subscriptionManager.methods[data?.method]) {
-      const connectSite = permissionService.getConnectedSite(session!.origin);
-      if (connectSite) {
-        const chain = CHAINS[connectSite.chain];
-        provider.chainId = chain.network;
-      }
+    if (
+      subscriptionManager.methods[data?.method] &&
+      permissionService.getConnectedSite(session!.origin)?.isConnected
+    ) {
       return subscriptionManager.methods[data.method].call(null, req);
     }
 
@@ -308,5 +445,27 @@ function startEnableUser() {
     category: 'User',
     action: 'enable',
   });
+
+  ga4.fireEvent('User_Enable', {
+    event_category: 'User Enable',
+  });
   preferenceService.updateSendEnableTime(Date.now());
+}
+
+// On first install, open a new tab with Rabby
+async function onInstall() {
+  const storeAlreadyExisted = await userGuideService.isStorageExisted();
+  // If the store doesn't exist, then this is the first time running this script,
+  // and is therefore an install
+  if (!storeAlreadyExisted) {
+    await userGuideService.openUserGuide();
+  }
+}
+
+if (isManifestV3) {
+  browser.alarms.onAlarm.addListener((alarm) => {
+    if (alarm.name === ALARMS_USER_ENABLE) {
+      startEnableUser();
+    }
+  });
 }

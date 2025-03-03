@@ -17,19 +17,23 @@ import { useTranslation } from 'react-i18next';
 
 const TabsStyled = styled(Tabs)`
   .ant-tabs-tab {
-    border-radius: 2px;
-    color: #4b4d59;
-    font-size: 13px;
-    transition: all 0.3s ease-in-out;
+    border-radius: 4px;
+    color: var(--r-neutral-body, #3e495e);
+    font-size: 12px;
+    transition: background-color 0.3s ease-in-out;
     margin: 0 !important;
-    width: 88px;
-    height: 24px;
+    width: 100px;
+    height: 28px;
     font-weight: 500;
     padding: 0;
     text-align: center;
 
     &.ant-tabs-tab-active {
-      background: #fff;
+      background: var(--r-neutral-card-1, #fff);
+      color: var(--r-blue-default, #7084ff);
+    }
+
+    &:hover {
       color: var(--r-blue-default, #7084ff);
     }
   }
@@ -38,11 +42,15 @@ const TabsStyled = styled(Tabs)`
     margin: auto;
   }
 
+  &.ant-tabs-top > .ant-tabs-nav::before {
+    border-bottom-color: transparent;
+  }
+
   .ant-tabs-nav-list {
     margin: auto;
-    background: #e5e9ef;
-    border-radius: 4px;
-    padding: 3px;
+    background: var(--r-neutral-line, #d3d8e0);
+    border-radius: 6px;
+    padding: 2px;
   }
 
   .ant-tabs-ink-bar {
@@ -94,7 +102,7 @@ export const NFTView: React.FC = () => {
   }, []);
 
   return (
-    <div className="nft-view px-20 pb-20 bg-[#F0F2F5] h-screen">
+    <div className="nft-view px-20 pb-20 bg-r-neutral-bg-2 h-screen">
       <PageHeader onBack={handleClickBack} forceShowBack>
         {t('page.nft.title')}
       </PageHeader>

@@ -1,15 +1,18 @@
 import React, { useEffect, useState } from 'react';
-import { Input, Form } from 'antd';
+import { Input, Form, message } from 'antd';
 import { useHistory } from 'react-router-dom';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
-import { KEYRING_TYPE } from 'consts';
+import { KEYRING_CLASS, KEYRING_TYPE } from 'consts';
+import IconSuccess from 'ui/assets/success.svg';
 
 import { Navbar, StrayPageWithButton } from 'ui/component';
 import { useWallet, useWalletRequest } from 'ui/utils';
 import { clearClipboard } from 'ui/utils/clipboard';
 import { useMedia } from 'react-use';
 import clsx from 'clsx';
+import { useRepeatImportConfirm } from '../utils/useRepeatImportConfirm';
+import { safeJSONParse } from '@/utils';
 
 const TipTextList = styled.div`
   margin-top: 32px;
@@ -17,7 +20,7 @@ const TipTextList = styled.div`
     font-weight: 700;
     font-size: 13px;
     line-height: 15px;
-    color: #13141a;
+    color: var(--r-neutral-title-1, #f7fafc);
     margin-top: 0;
     margin-bottom: 8px;
   }
@@ -25,7 +28,7 @@ const TipTextList = styled.div`
     font-weight: 400;
     font-size: 13px;
     line-height: 15px;
-    color: #4b4d59;
+    color: var(--r-neutral-body, #d3d8e0);
     margin: 0;
   }
   section + section {
@@ -43,6 +46,7 @@ const ImportPrivateKey = () => {
   );
   const isWide = useMedia('(min-width: 401px)');
 
+  const { show, contextHolder } = useRepeatImportConfirm();
   const [run, loading] = useWalletRequest(wallet.importPrivateKey, {
     onSuccess(accounts) {
       const successShowAccounts = accounts.map((item, index) => {
@@ -61,14 +65,23 @@ const ImportPrivateKey = () => {
       });
     },
     onError(err) {
-      form.setFields([
-        {
-          name: 'key',
-          errors: [
-            err?.message || t('page.newAddress.privateKey.notAValidPrivateKey'),
-          ],
-        },
-      ]);
+      if (err.message?.includes?.('DuplicateAccountError')) {
+        const address = safeJSONParse(err.message)?.address;
+        show({
+          address,
+          type: KEYRING_CLASS.PRIVATE_KEY,
+        });
+      } else {
+        form.setFields([
+          {
+            name: 'key',
+            errors: [
+              err?.message ||
+                t('page.newAddress.privateKey.notAValidPrivateKey'),
+            ],
+          },
+        ]);
+      }
     },
   });
 
@@ -93,6 +106,7 @@ const ImportPrivateKey = () => {
 
   return (
     <>
+      {contextHolder}
       <StrayPageWithButton
         custom={isWide}
         spinning={loading}
@@ -106,7 +120,7 @@ const ImportPrivateKey = () => {
         formProps={{
           onValuesChange: (states) => {
             wallet.setPageStateCache({
-              path: history.location.pathname,
+              path: '/import/key',
               params: {},
               states,
             });
@@ -132,7 +146,7 @@ const ImportPrivateKey = () => {
         >
           {t('page.newAddress.importPrivateKey')}
         </Navbar>
-        <div className="rabby-container">
+        <div className="rabby-container widget-has-ant-input">
           <div className="px-20 pt-24">
             <Form.Item
               name="key"
@@ -144,11 +158,21 @@ const ImportPrivateKey = () => {
               ]}
             >
               <Input
-                className={'h-[52px] p-16'}
+                className={'h-[52px] p-16 border-bright-on-active'}
                 placeholder={t('page.newAddress.privateKey.placeholder')}
                 autoFocus
                 spellCheck={false}
                 type="password"
+                onPaste={() => {
+                  clearClipboard();
+                  message.success({
+                    icon: (
+                      <img src={IconSuccess} className="icon icon-success" />
+                    ),
+                    content: t('page.newAddress.seedPhrase.pastedAndClear'),
+                    duration: 2,
+                  });
+                }}
               />
             </Form.Item>
             <TipTextList className="mt-32">
@@ -185,7 +209,7 @@ const ImportPrivateKey = () => {
                   >
                     Yes, you can
                     <a
-                      className="underline text-blue-light cursor-pointer"
+                      className="underline text-r-blue-default cursor-pointer"
                       onClick={() => history.push('/import/json')}
                     >
                       import KeyStore

@@ -1,32 +1,34 @@
-import React, { useEffect, useMemo, useState } from 'react';
-import { Button, message } from 'antd';
-import clsx from 'clsx';
-import { useLocation } from 'react-router-dom';
-import { useTranslation } from 'react-i18next';
 import i18n from '@/i18n';
-import { Chain } from 'background/service/openapi';
-import { ChainSelector, Spin, FallbackSiteLogo } from 'ui/component';
-import { useApproval, useWallet } from 'ui/utils';
-import {
-  CHAINS_ENUM,
-  CHAINS,
-  SecurityEngineLevel,
-  SIGN_PERMISSION_TYPES,
-} from 'consts';
-import styled from 'styled-components';
+import { ReactComponent as ArrowDownSVG } from '@/ui/assets/approval/arrow-down-blue.svg';
+import { findChain } from '@/utils/chain';
+import { Result } from '@rabby-wallet/rabby-security-engine';
 import {
   ContextActionData,
-  RuleConfig,
   Level,
+  RuleConfig,
 } from '@rabby-wallet/rabby-security-engine/dist/rules';
-import { Result } from '@rabby-wallet/rabby-security-engine';
-import { useSecurityEngine } from 'ui/utils/securityEngine';
-import RuleResult from './RuleResult';
-import RuleDrawer from '../SecurityEngine/RuleDrawer';
-import UserListDrawer from './UserListDrawer';
-import IconSuccess from 'ui/assets/success.svg';
+import { Button, message } from 'antd';
+import { Chain } from 'background/service/openapi';
+import clsx from 'clsx';
+import { CHAINS_ENUM, SecurityEngineLevel } from 'consts';
 import PQueue from 'p-queue';
-import { SignTestnetPermission } from './SignTestnetPermission';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useLocation } from 'react-router-dom';
+import styled from 'styled-components';
+import IconSuccess from 'ui/assets/success.svg';
+import { ChainSelector, FallbackSiteLogo, Spin } from 'ui/component';
+import { sleep, useApproval, useCommonPopupView, useWallet } from 'ui/utils';
+import { useSecurityEngine } from 'ui/utils/securityEngine';
+import RuleDrawer from '../SecurityEngine/RuleDrawer';
+import RuleResult from './RuleResult';
+import UserListDrawer from './UserListDrawer';
+import { EIP6963ProviderInfo, SelectWallet } from './SelectWallet';
+import { ConnectedSite } from '@/background/service/permission';
+import { ReactComponent as RcIconMetamask } from 'ui/assets/metamask-mode-circle-cc.svg';
+import { matomoRequestEvent } from '@/utils/matomo-request';
+import { ga4 } from '@/utils/ga4';
+import { useMount } from 'ahooks';
 
 interface ConnectProps {
   params: any;
@@ -44,14 +46,16 @@ const ConnectWrapper = styled.div`
       font-weight: 500;
       font-size: 17px;
       line-height: 20px;
-      color: #13141a;
+      color: var(--r-neutral-title-1, #192945);
     }
     .chain-selector {
       height: 32px;
       border-radius: 8px;
-      background: #fff;
+      background: var(--r-neutral-bg-1, #fff);
+      color: var(--r-neutral-title-1, #192945);
       font-size: 13px;
-      border: 1px solid #e5e9ef;
+      border: 0.5px solid var(--r-neutral-line, rgba(255, 255, 255, 0.1));
+      border: 1px solid var(--r-neutral-line, rgba(255, 255, 255, 0.1));
       box-shadow: none;
       .chain-icon-comp {
         width: 16px;
@@ -66,7 +70,7 @@ const ConnectWrapper = styled.div`
       }
     }
     .connect-card {
-      background: #f5f6fa;
+      background: var(--r-neutral-card-2, rgba(255, 255, 255, 0.06));
       border-radius: 8px;
       padding: 20px;
       display: flex;
@@ -80,7 +84,9 @@ const ConnectWrapper = styled.div`
         font-size: 22px;
         line-height: 26px;
         text-align: center;
-        color: #13141a;
+        color: var(--r-neutral-title-1, #192945);
+        word-wrap: break-word;
+        max-width: 100%;
       }
     }
   }
@@ -95,9 +101,9 @@ const Footer = styled.div`
   display: flex;
   flex-direction: column;
   padding: 20px;
-  border-top: 1px solid #e5e9ef;
+  border-top: 1px solid var(--r-neutral-card-2, rgba(255, 255, 255, 0.06));
   width: 100%;
-  background-color: #fff;
+  background: var(--r-neutral-card-1, #fff);
   .ant-btn {
     width: 100%;
     height: 52px;
@@ -191,7 +197,10 @@ const SecurityLevelTipColor = {
   },
 };
 
-const Connect = ({ params: { icon, origin } }: ConnectProps) => {
+const Connect = (props: ConnectProps) => {
+  const {
+    params: { icon, origin, name, $ctx },
+  } = props;
   const { state } = useLocation<{
     showChainsModal?: boolean;
   }>();
@@ -221,7 +230,12 @@ const Connect = ({ params: { icon, origin } }: ConnectProps) => {
     ignored: boolean;
   } | null>(null);
 
-  const [signPermission, setSignPermission] = useState<SIGN_PERMISSION_TYPES>();
+  const [isShowSelectWallet, setIsShowSelectWallet] = useState(false);
+  const [providerInfo, setProviderInfo] = useState<EIP6963ProviderInfo | null>(
+    null
+  );
+
+  const [currentSite, setCurrentSite] = useState<ConnectedSite>();
 
   const userListResult = useMemo(() => {
     const originBlacklist = engineResults.find(
@@ -459,6 +473,7 @@ const Connect = ({ params: { icon, origin } }: ConnectProps) => {
   const init = async () => {
     const account = await wallet.getCurrentAccount();
     const site = await wallet.getSite(origin);
+    setCurrentSite(site);
     let level: 'very_low' | 'low' | 'medium' | 'high' = 'low';
     let collectList: { name: string; logo_url: string }[] = [];
     let defaultChain = CHAINS_ENUM.ETH;
@@ -495,11 +510,11 @@ const Connect = ({ params: { icon, origin } }: ConnectProps) => {
           account!.address,
           origin
         );
-        let targetChain: Chain | undefined;
+        let targetChain: Chain | null | undefined;
         for (let i = 0; i < recommendChains.length; i++) {
-          targetChain = Object.values(CHAINS).find(
-            (c) => c.serverId === recommendChains[i].id
-          );
+          targetChain = findChain({
+            serverId: recommendChains[i].id,
+          });
           if (targetChain) break;
         }
         defaultChain = targetChain ? targetChain.enum : CHAINS_ENUM.ETH;
@@ -531,7 +546,7 @@ const Connect = ({ params: { icon, origin } }: ConnectProps) => {
     setEngineResults(results);
     if (site) {
       setIsLoading(false);
-      if (!isShowTestnet && CHAINS[site.chain]?.isTestnet) {
+      if (!isShowTestnet && findChain({ enum: site.chain })?.isTestnet) {
         return;
       }
       setDefaultChain(site.chain);
@@ -551,7 +566,6 @@ const Connect = ({ params: { icon, origin } }: ConnectProps) => {
   const handleAllow = async () => {
     resolveApproval({
       defaultChain,
-      signPermission,
     });
   };
 
@@ -586,60 +600,114 @@ const Connect = ({ params: { icon, origin } }: ConnectProps) => {
     setRuleDrawerVisible(true);
   };
 
+  const [
+    displayBlockedRequestApproval,
+    setDisplayBlockedRequestApproval,
+  ] = React.useState<boolean>(false);
+  const { activePopup, setData } = useCommonPopupView();
+
+  React.useEffect(() => {
+    wallet
+      .checkNeedDisplayBlockedRequestApproval()
+      .then(setDisplayBlockedRequestApproval);
+  }, []);
+
+  const activeCancelPopup = () => {
+    setData({
+      onCancel: handleCancel,
+      displayBlockedRequestApproval,
+    });
+    activePopup('CancelConnect');
+  };
+
+  useMount(() => {
+    if ($ctx?.providers?.length) {
+      matomoRequestEvent({
+        category: 'Wallet Conflict',
+        action: 'OtherWallet_Show',
+      });
+
+      ga4.fireEvent('OtherWallet_Show', {
+        event_category: 'Wallet Conflict',
+      });
+    }
+  });
+
   return (
     <Spin spinning={isLoading}>
-      <ConnectWrapper>
-        <div className="approval-connect">
-          <div className="flex justify-between items-center mb-20">
-            <div className="approval-title">{t('page.connect.title')}</div>
-            <ChainSelector
-              title={
-                <div>
-                  <div className="chain-selector-tips">
-                    {t('page.connect.selectChainToConnect')}
-                  </div>
-                  <div className="chain-selector-site">{origin}</div>
-                </div>
-              }
-              value={defaultChain}
-              onChange={handleChainChange}
-              connection
-              showModal={showModal}
-              modalHeight={540}
-            />
-          </div>
-          <div className="connect-card">
-            <FallbackSiteLogo url={icon} origin={origin} width="40px" />
-            <p className="connect-origin">{origin}</p>
-          </div>
-        </div>
+      {isShowSelectWallet ? (
+        <SelectWallet
+          onBack={() => {
+            setIsShowSelectWallet(false);
+          }}
+          onSelect={async (info) => {
+            await wallet.changeDappProvider({
+              origin,
+              icon,
+              name,
+              rdns: info.rdns,
+            });
+            matomoRequestEvent({
+              category: 'Wallet Conflict',
+              action: `OtherWallet_${name.trim().replace(/\s+/g, '')}`,
+            });
 
-        <div className="rule-list">
-          {RuleDesc.map((rule) => {
-            if (rule.id === '1006') {
-              return (
-                <RuleResult
-                  rule={{
-                    id: '1006',
-                    desc: t('page.connect.markRuleText'),
-                    result: userListResult || null,
-                  }}
-                  onSelect={handleSelectRule}
-                  collectList={collectList}
-                  popularLevel={originPopularLevel}
-                  userListResult={userListResult}
-                  ignored={processedRules.includes(rule.id)}
-                  hasSafe={hasSafe}
-                  hasForbidden={hasForbidden}
-                  onEditUserList={handleEditUserDataList}
-                />
-              );
-            } else {
-              if (sortRules.find((item) => item.id === rule.id) || rule.fixed) {
+            ga4.fireEvent(`OtherWallet_${name.trim().replace(/\s+/g, '')}`, {
+              event_category: 'Wallet Conflict',
+            });
+            await sleep(150);
+            rejectApproval();
+          }}
+          providers={$ctx?.providers || []}
+        />
+      ) : (
+        <ConnectWrapper>
+          <div className="approval-connect">
+            <div className="flex justify-between items-center mb-20">
+              <div className="approval-title">{t('page.connect.title')}</div>
+              <ChainSelector
+                title={
+                  <div>
+                    <div className="chain-selector-tips">
+                      {t('page.connect.selectChainToConnect')}
+                    </div>
+                    <div className="chain-selector-site">{origin}</div>
+                  </div>
+                }
+                value={defaultChain}
+                onChange={handleChainChange}
+                connection
+                showModal={showModal}
+                modalHeight={540}
+              />
+            </div>
+            <div className="connect-card">
+              <div className="relative">
+                <FallbackSiteLogo url={icon} origin={origin} width="40px" />
+                {currentSite?.isMetamaskMode ? (
+                  <div className="absolute top-[-4px] right-[-4px] text-r-neutral-title-2">
+                    <RcIconMetamask
+                      width={20}
+                      height={20}
+                      viewBox="0 0 16 16"
+                    />
+                  </div>
+                ) : null}
+              </div>
+              <p className="connect-origin">{origin}</p>
+            </div>
+          </div>
+
+          <div className="rule-list">
+            {RuleDesc.map((rule) => {
+              if (rule.id === '1006') {
                 return (
                   <RuleResult
-                    rule={sortRules.find((item) => item.id === rule.id)!}
-                    key={rule.id}
+                    rule={{
+                      id: '1006',
+                      desc: t('page.connect.markRuleText'),
+                      result: userListResult || null,
+                    }}
                     onSelect={handleSelectRule}
                     collectList={collectList}
                     popularLevel={originPopularLevel}
@@ -651,91 +719,154 @@ const Connect = ({ params: { icon, origin } }: ConnectProps) => {
                   />
                 );
               } else {
-                return null;
+                if (
+                  sortRules.find((item) => item.id === rule.id) ||
+                  rule.fixed
+                ) {
+                  return (
+                    <RuleResult
+                      rule={sortRules.find((item) => item.id === rule.id)!}
+                      key={rule.id}
+                      onSelect={handleSelectRule}
+                      collectList={collectList}
+                      popularLevel={originPopularLevel}
+                      userListResult={userListResult}
+                      ignored={processedRules.includes(rule.id)}
+                      hasSafe={hasSafe}
+                      hasForbidden={hasForbidden}
+                      onEditUserList={handleEditUserDataList}
+                    />
+                  );
+                } else {
+                  return null;
+                }
               }
-            }
-          })}
-        </div>
-        <div>
-          <SignTestnetPermission
-            value={signPermission}
-            onChange={(v) => setSignPermission(v)}
-          />
-          <Footer>
-            <div className="action-buttons flex flex-col mt-4 items-center">
-              <Button
-                type="primary"
-                size="large"
-                onClick={() => handleAllow()}
-                disabled={connectBtnStatus.disabled}
-                className={clsx({
-                  'mb-0': !connectBtnStatus.text,
-                })}
-              >
-                {t('page.connect.connectBtn')}
-              </Button>
-              {connectBtnStatus.text && (
-                <div
-                  className={clsx('security-tip', connectBtnStatus.level)}
-                  style={{
-                    color: SecurityLevelTipColor[connectBtnStatus.level].bg,
-                    backgroundColor:
-                      SecurityLevelTipColor[connectBtnStatus.level].bg,
-                  }}
+            })}
+          </div>
+          <div>
+            <Footer>
+              <div className="action-buttons flex flex-col mt-4 items-center">
+                <Button
+                  type="primary"
+                  size="large"
+                  onClick={() => handleAllow()}
+                  disabled={connectBtnStatus.disabled}
+                  className={clsx({
+                    'mb-0': !connectBtnStatus.text,
+                  })}
                 >
-                  <img
-                    src={SecurityLevelTipColor[connectBtnStatus.level].icon}
-                    className="icon icon-level"
-                  />
-                  <span
-                    className="flex-1"
+                  {t('page.connect.connectBtn')}
+                </Button>
+                {connectBtnStatus.text && (
+                  <div
+                    className={clsx('security-tip', connectBtnStatus.level)}
                     style={{
-                      color: SecurityLevelTipColor[connectBtnStatus.level].text,
+                      color: SecurityLevelTipColor[connectBtnStatus.level].bg,
+                      backgroundColor:
+                        SecurityLevelTipColor[connectBtnStatus.level].bg,
                     }}
                   >
-                    {connectBtnStatus.text}
-                  </span>
-                  <span
-                    className="underline text-13 font-medium cursor-pointer"
-                    style={{
-                      color: SecurityLevelTipColor[connectBtnStatus.level].text,
+                    <img
+                      src={SecurityLevelTipColor[connectBtnStatus.level].icon}
+                      className="icon icon-level"
+                    />
+                    <span
+                      className="flex-1"
+                      style={{
+                        color:
+                          SecurityLevelTipColor[connectBtnStatus.level].text,
+                      }}
+                    >
+                      {connectBtnStatus.text}
+                    </span>
+                    <span
+                      className="underline text-13 font-medium cursor-pointer"
+                      style={{
+                        color:
+                          SecurityLevelTipColor[connectBtnStatus.level].text,
+                      }}
+                      onClick={onIgnoreAllRules}
+                    >
+                      {t('page.connect.ignoreAll')}
+                    </span>
+                  </div>
+                )}
+                <Button
+                  type="primary"
+                  ghost
+                  className={clsx(
+                    'rabby-btn-ghost',
+                    'flex items-center justify-center gap-2'
+                  )}
+                  size="large"
+                  onClick={
+                    displayBlockedRequestApproval
+                      ? activeCancelPopup
+                      : handleCancel
+                  }
+                >
+                  {connectBtnStatus.cancelBtnText}
+                  {displayBlockedRequestApproval && (
+                    <ArrowDownSVG className="w-16" />
+                  )}
+                </Button>
+              </div>
+              {$ctx?.providers?.length ? (
+                <div className="border-t-rabby-neutral-line border-t-[1px] border-dotted mt-[20px] pt-[20px]">
+                  <div
+                    className={clsx(
+                      'bg-r-neutral-card-2 p-[14px] h-[48px]  text-center rounded-[6px]',
+                      'text-[16px] leading-[19px] font-medium cursor-pointer text-r-neutral-body',
+                      'border-[1px] border-transparent',
+                      'hover:border-rabby-blue-default hover:bg-r-blue-light1',
+                      'flex items-center justify-center'
+                    )}
+                    onClick={() => {
+                      setIsShowSelectWallet(true);
+                      matomoRequestEvent({
+                        category: 'Wallet Conflict',
+                        action: 'OtherWallet_Click',
+                      });
+
+                      ga4.fireEvent('OtherWallet_Click', {
+                        event_category: 'Wallet Conflict',
+                      });
                     }}
-                    onClick={onIgnoreAllRules}
                   >
-                    {t('page.connect.ignoreAll')}
-                  </span>
+                    <span className="mr-8">
+                      {t('page.connect.otherWalletBtn')}
+                    </span>
+                    {$ctx?.providers.length > 0 && (
+                      <div className="flex gap-8">
+                        {$ctx?.providers.slice(0, 3).map((item) => (
+                          <img className="w-16" src={item.icon} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              )}
-              <Button
-                type="primary"
-                ghost
-                className="rabby-btn-ghost"
-                size="large"
-                onClick={handleCancel}
-              >
-                {connectBtnStatus.cancelBtnText}
-              </Button>
-            </div>
-          </Footer>
-        </div>
-        <RuleDrawer
-          selectRule={selectRule}
-          visible={ruleDrawerVisible}
-          onIgnore={handleIgnoreRule}
-          onUndo={handleUndoIgnore}
-          onRuleEnableStatusChange={handleRuleEnableStatusChange}
-          onClose={handleRuleDrawerClose}
-        />
-        <UserListDrawer
-          origin={origin}
-          logo={icon}
-          onWhitelist={isInWhitelist}
-          onBlacklist={isInBlacklist}
-          visible={listDrawerVisible}
-          onChange={handleUserListChange}
-          onClose={() => setListDrawerVisible(false)}
-        />
-      </ConnectWrapper>
+              ) : null}
+            </Footer>
+          </div>
+          <RuleDrawer
+            selectRule={selectRule}
+            visible={ruleDrawerVisible}
+            onIgnore={handleIgnoreRule}
+            onUndo={handleUndoIgnore}
+            onRuleEnableStatusChange={handleRuleEnableStatusChange}
+            onClose={handleRuleDrawerClose}
+          />
+          <UserListDrawer
+            origin={origin}
+            logo={icon}
+            onWhitelist={isInWhitelist}
+            onBlacklist={isInBlacklist}
+            visible={listDrawerVisible}
+            onChange={handleUserListChange}
+            onClose={() => setListDrawerVisible(false)}
+          />
+        </ConnectWrapper>
+      )}
     </Spin>
   );
 };

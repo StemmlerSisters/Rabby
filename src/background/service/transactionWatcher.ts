@@ -5,12 +5,13 @@ import {
 } from 'background/service';
 import { createPersistStore, isSameAddress } from 'background/utils';
 import { notification } from 'background/webapi';
-import { CHAINS, CHAINS_ENUM } from 'consts';
-import { format } from '@/utils';
+import { CHAINS, CHAINS_ENUM, EVENTS_IN_BG } from 'consts';
+import { format, getTxScanLink } from '@/utils';
 import eventBus from '@/eventBus';
 import { EVENTS } from '@/constant';
 import interval from 'interval-promise';
-import { findChainByEnum } from '@/utils/chain';
+import { findChain, findChainByEnum } from '@/utils/chain';
+import { customTestnetService } from './customTestnet';
 
 class Transaction {
   createdTime = 0;
@@ -55,7 +56,7 @@ class TransactionWatcher {
       throw new Error(`[transactionWatcher::addTx] chain ${chain} not found`);
     }
 
-    const url = format(chainItem.scanLink, hash);
+    const url = getTxScanLink(chainItem.scanLink, hash);
     // notification.create(
     //   url,
     //   i18n.t('background.transactionWatcher.submitted'),
@@ -68,9 +69,18 @@ class TransactionWatcher {
       return;
     }
     const { hash, chain } = this.store.pendingTx[id];
-    const chainItem = findChainByEnum(chain);
+    const chainItem = findChain({ enum: chain });
     if (!chainItem) {
       return;
+    }
+
+    if (chainItem.isTestnet) {
+      return customTestnetService
+        .getTransactionReceipt({
+          chainId: chainItem.id,
+          hash,
+        })
+        .catch(() => null);
     }
 
     return openapiService
@@ -87,16 +97,16 @@ class TransactionWatcher {
     }
     const { hash, chain, nonce } = this.store.pendingTx[id];
 
-    const chainItem = findChainByEnum(chain);
+    const chainItem = findChain({ enum: chain });
     if (!chainItem) {
       throw new Error(`[transactionWatcher::notify] chain ${chain} not found`);
     }
 
-    const url = format(chainItem.scanLink, hash);
+    const url = getTxScanLink(chainItem.scanLink, hash);
     const [address] = id.split('_');
-
+    let gasUsed: number | undefined;
     if (txReceipt) {
-      await transactionHistoryService.reloadTx({
+      gasUsed = await transactionHistoryService.reloadTx({
         address,
         nonce: Number(nonce),
         chainId: chainItem.id,
@@ -108,16 +118,28 @@ class TransactionWatcher {
         ? i18n.t('background.transactionWatcher.completed')
         : i18n.t('background.transactionWatcher.failed');
 
-    notification.create(
-      url,
-      title,
-      i18n.t('background.transactionWatcher.more'),
-      2
-    );
+    const content =
+      txReceipt.status === '0x1'
+        ? i18n.t('background.transactionWatcher.txCompleteMoreContent', {
+            chain: chainItem.name,
+            nonce: Number(nonce),
+          })
+        : i18n.t('background.transactionWatcher.txFailedMoreContent', {
+            chain: chainItem.name,
+            nonce: Number(nonce),
+          });
+
+    notification.create(url, title, content, 2);
 
     eventBus.emit(EVENTS.broadcastToUI, {
       method: EVENTS.TX_COMPLETED,
-      params: { address, hash },
+      params: { address, hash, gasUsed },
+    });
+
+    eventBus.emit(EVENTS_IN_BG.ON_TX_COMPLETED, {
+      address,
+      hash,
+      status: txReceipt.status,
     });
   };
 
@@ -177,13 +199,47 @@ class TransactionWatcher {
     this._clearBefore(id);
   };
 
-  clearPendingTx = (address: string) => {
+  clearPendingTx = (address: string, chainId?: number) => {
     this.store.pendingTx = Object.entries(this.store.pendingTx).reduce(
       (m, [key, v]) => {
         // address_chain_nonce
         const [kAddress] = key.split('_');
+        const chainItem = findChainByEnum(v.chain);
+        const isSameAddr = isSameAddress(address, kAddress);
+        if (chainId ? +chainId === chainItem?.id && isSameAddr : isSameAddr) {
+          return m;
+        }
         // keep pending txs of other addresses
-        if (!isSameAddress(address, kAddress) && v) {
+        if (v) {
+          m[key] = v;
+        }
+
+        return m;
+      },
+      {}
+    );
+  };
+
+  removeLocalPendingTx = ({
+    address,
+    chainId,
+    nonce,
+  }: {
+    address: string;
+    chainId: number;
+    nonce: number;
+  }) => {
+    this.store.pendingTx = Object.entries(this.store.pendingTx).reduce(
+      (m, [key, v]) => {
+        // address_chain_nonce
+        const [kAddress, , _nonce] = key.split('_');
+        const chainItem = findChainByEnum(v.chain);
+        const isSameAddr = isSameAddress(address, kAddress);
+        if (+chainId === chainItem?.id && isSameAddr && +_nonce === +nonce) {
+          return m;
+        }
+        // keep pending txs of other addresses
+        if (v) {
           m[key] = v;
         }
 

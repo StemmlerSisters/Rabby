@@ -1,6 +1,5 @@
 import { Tooltip } from 'antd';
 import clsx from 'clsx';
-import { KEYRING_ICONS, WALLET_BRAND_CONTENT } from 'consts';
 import React, {
   memo,
   MouseEventHandler,
@@ -13,11 +12,12 @@ import { AddressViewer } from 'ui/component';
 import { isSameAddress, splitNumberByStep, useAlias } from 'ui/utils';
 import { useRabbySelector } from '@/ui/store';
 
-import IconWhitelist from 'ui/assets/address/whitelist.svg';
+import { ReactComponent as RcIconWhitelist } from 'ui/assets/address/whitelist.svg';
 import { CopyChecked } from '@/ui/component/CopyChecked';
-import { useWalletConnectIcon } from '@/ui/component/WalletConnect/useWalletConnectIcon';
 import { CommonSignal } from '@/ui/component/ConnectStatus/CommonSignal';
 import { useTranslation } from 'react-i18next';
+import ThemeIcon from '../ThemeMode/ThemeIcon';
+import { useBrandIcon } from '@/ui/hooks/useBrandIcon';
 
 export interface AddressItemProps {
   balance: number;
@@ -57,19 +57,11 @@ const AddressItem = memo(
     const alias = _alias || aliasName;
     const titleRef = useRef<HTMLDivElement>(null);
 
-    const brandIcon = useWalletConnectIcon({
+    const addressTypeIcon = useBrandIcon({
       address,
       brandName,
       type,
     });
-
-    const addressTypeIcon = useMemo(
-      () =>
-        brandIcon ||
-        KEYRING_ICONS[type] ||
-        WALLET_BRAND_CONTENT?.[brandName]?.image,
-      [type, brandName, brandIcon]
-    );
 
     return (
       <div
@@ -90,7 +82,7 @@ const AddressItem = memo(
       >
         <div className={clsx('searched-account-item-left mr-[8px]')}>
           <div className="relative">
-            <img src={addressTypeIcon} className={'w-[24px] h-[24px]'} />
+            <ThemeIcon src={addressTypeIcon} className={'w-[24px] h-[24px]'} />
             <CommonSignal
               type={type}
               brandName={brandName}
@@ -118,8 +110,8 @@ const AddressItem = memo(
                       'component.AccountSearchInput.AddressItem.whitelistedAddressTip'
                     )}
                   >
-                    <img
-                      src={IconWhitelist}
+                    <ThemeIcon
+                      src={RcIconWhitelist}
                       className={clsx('w-14 h-14 ml-[4px]')}
                     />
                   </Tooltip>
@@ -143,7 +135,7 @@ const AddressItem = memo(
               checkedClassName={clsx('text-[#00C087]')}
             />
 
-            <span className="ml-[8px] text-12 text-gray-subTitle">
+            <span className="ml-[8px] text-12 text-r-neutral-body">
               ${splitNumberByStep(balance?.toFixed(2))}
             </span>
           </div>

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { CHAINS } from 'consts';
 import { getTokenSymbol } from 'ui/utils/token';
 import { TokenItem } from 'background/service/openapi';
@@ -6,15 +6,19 @@ import IconUnknown from 'ui/assets/token-default.svg';
 import './style.less';
 import clsx from 'clsx';
 import { TooltipWithMagnetArrow } from '../Tooltip/TooltipWithMagnetArrow';
+import { findChain } from '@/utils/chain';
 
 const TokenWithChain = ({
   token,
   hideConer,
   width = '28px',
   height = '28px',
+  chainSize = 14,
   noRound = false,
   hideChainIcon = false,
   isShowChainTooltip = false,
+  className,
+  chainClassName,
 }: {
   token: TokenItem;
   width?: string;
@@ -23,14 +27,25 @@ const TokenWithChain = ({
   noRound?: boolean;
   hideChainIcon?: boolean;
   isShowChainTooltip?: boolean;
+  className?: string;
+  chainSize?: string | number;
+  chainClassName?: string;
 }) => {
   const chainServerId = token.chain;
-  const chain = Object.values(CHAINS).find(
-    (item) => item.serverId === chainServerId
+  const chain = findChain({
+    serverId: chainServerId,
+  });
+
+  const chainStyle = useMemo(
+    () => ({
+      width: chainSize,
+      height: chainSize,
+    }),
+    [chainSize]
   );
   return (
     <div
-      className={clsx('token-with-chain', noRound && 'no-round')}
+      className={clsx('token-with-chain', noRound && 'no-round', className)}
       style={{ width, height }}
     >
       <img
@@ -44,12 +59,20 @@ const TokenWithChain = ({
         (isShowChainTooltip ? (
           <TooltipWithMagnetArrow
             title={chain?.name}
-            className="rectangle w-[max-content]"
+            className={clsx('chain-symbol', chainClassName)}
           >
-            <img className="chain-symbol" src={chain?.logo || IconUnknown} />
+            <img
+              className="chain-symbol"
+              style={chainStyle}
+              src={chain?.logo || IconUnknown}
+            />
           </TooltipWithMagnetArrow>
         ) : (
-          <img className="chain-symbol" src={chain?.logo || IconUnknown} />
+          <img
+            className={clsx('chain-symbol', chainClassName)}
+            style={chainStyle}
+            src={chain?.logo || IconUnknown}
+          />
         ))}
     </div>
   );
@@ -74,9 +97,9 @@ export const IconWithChain = ({
   hideChainIcon?: boolean;
   isShowChainTooltip?: boolean;
 }) => {
-  const chain = Object.values(CHAINS).find(
-    (item) => item.serverId === chainServerId
-  );
+  const chain = findChain({
+    serverId: chainServerId,
+  });
   return (
     <div
       className={clsx('token-with-chain', noRound && 'no-round')}

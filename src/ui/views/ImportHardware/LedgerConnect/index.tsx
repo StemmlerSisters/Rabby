@@ -3,10 +3,11 @@ import { useHistory, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import TransportWebHID from '@ledgerhq/hw-transport-webhid';
 import { StrayPageWithButton } from 'ui/component';
-import { hasConnectedLedgerDevice } from '@/utils';
+import { hasConnectedLedgerDevice } from '@/ui/utils';
 import { HARDWARE_KEYRING_TYPES } from 'consts';
 import './style.less';
 import { query2obj } from '@/ui/utils/url';
+import { LedgerBanner } from './LedgerBanner';
 
 const LedgerConnect = () => {
   const history = useHistory();
@@ -64,20 +65,22 @@ const LedgerConnect = () => {
         title: t('page.newAddress.ledger.title'),
         center: true,
       }}
-      className="stray-page-wide"
-      headerClassName="mb-40"
+      className="stray-page-wide ledger-page"
+      backgroundClassName="bg-r-neutral-card2"
+      headerClassName="mb-40 text-r-neutral-title1"
       onSubmit={onSubmit}
       hasBack={false}
       footerFixed={false}
     >
       <div className="connect-ledger">
-        <ul className="list-decimal w-[180px] pl-[20px] m-auto text-gray-title text-14 leading-[20px] mb-[50px]">
+        <ul className="list-decimal w-[180px] pl-[20px] m-auto text-r-neutral-title1 text-14 leading-[20px] mb-[50px]">
           <li>{t('page.dashboard.hd.ledger.doc1')}</li>
           <li>{t('page.dashboard.hd.ledger.doc2')}</li>
           <li>{t('page.dashboard.hd.ledger.doc3')}</li>
         </ul>
         <img src="/images/ledger-plug.png" className="ledger-plug" />
       </div>
+      <LedgerBanner className="ledger-banner" />
     </StrayPageWithButton>
   );
 };
